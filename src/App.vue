@@ -1,18 +1,66 @@
 <template>
-	<router-link to="/">Home</router-link> |
-	<router-link to="/about">About</router-link>
-	<router-view></router-view>
+	<q-fab
+		label=""
+		class="fixed-top-right"
+		vertical-actions-align="left"
+		color="primary"
+		icon="menu"
+		direction="left"
+	>
+		<q-fab-action color="primary" :icon="fsIcon" @click="goFullScreen" />
+		<q-fab-action to="/" label="Home" color="primary" icon="home" />
+		<q-fab-action to="/bbview" label="BBView" color="primary" icon="tag" />
+		<q-fab-action to="/wsLog" label="WS Log" color="primary" icon="manage_search" />
+		<q-fab-action to="/flow" label="Flow" color="primary" icon="account_tree" />
+		<q-fab-action to="/dev" label="DEV" color="primary" icon="airplay" />
+		<q-fab-action to="/obj" label="ObjView" color="primary" icon="data_object" />
+		<q-fab-action to="/about" label="About" color="primary" icon="help_outline" />
+	</q-fab>
+	<router-view class="pos-abs width-100 height-100" />
 </template>
 
 <script setup lang="ts">
-	// This starter template is using Vue 3 <script setup> SFCs
-	// Check out https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup
-	// import HelloWorld from "./components/HelloWorld.vue"
+	import { useQuasar } from "quasar"
+	import { ref } from "vue"
+	const $q = useQuasar()
+
+	$q.dark.set(true) // or false or "auto"
+	// console.log("Dark active:", $q.dark.isActive) // true, false
+	// console.log("Dark mode:", $q.dark.mode) // "auto", true, false
+
+	$q.notify({ icon: "done", message: "XApp started!" })
+
+	let fsIcon = ref("fullscreen")
+	let goFullScreen = () => {
+		if (!document.fullscreenElement) {
+			fsIcon.value = "close_fullscreen"
+			document.documentElement.requestFullscreen().catch((err) => {
+				alert(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`)
+				fsIcon.value = "fullscreen"
+			})
+		} else {
+			document.exitFullscreen()
+			fsIcon.value = "fullscreen"
+		}
+	}
 </script>
 
-<style>
-	#app {
-		font-family: Avenir, Arial, Helvetica, sans-serif;
-		color: #2c3e50;
+<style scoped>
+	.router-link-active {
+		font-weight: bolder;
+		font-size: larger;
+		color: aliceblue;
+	}
+	.pos-abs {
+		position: absolute;
+	}
+	.pos-rel {
+		position: relative;
+	}
+	.width-100 {
+		width: 100%;
+	}
+	.height-100 {
+		height: 100%;
 	}
 </style>

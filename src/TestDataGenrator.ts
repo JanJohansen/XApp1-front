@@ -29,7 +29,7 @@ export default class TestDataGenerator {
 		// Simulate variable object
 		let c1 = 0
 		setInterval(() => {
-			db.rSet("TestDataGenerator.outs.out1", c1++)
+			db.rSet("TestDataGenerator.outs.out1.v", c1++)
 		}, 2000)
 
 		// let c3 = 1

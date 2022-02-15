@@ -131,6 +131,7 @@ class ObjDbClient {
 		}
 	}
 	serverSub(path: string) {
+		console.log("serverSub:", path)
 		// Store server sub-status
 		// Send initial value if exists
 	}
