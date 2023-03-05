@@ -1,58 +1,303 @@
 <template>
-	<div>
-		<flow-canvas
-			v-if="flowDataLoaded"
-			:editorModel="editorModel"
-			:flowModel="flowModel"
-			@menuSelected="contextmenuSelected"
-		/>
-		<div v-else>Loading flow data...</div>
-		<aside v-if="editorModel.selectedNode" class="propExplorer">
-			<div class="center">Property Explorer</div>
-			<div>
-				<h2>{{ editorModel.selectedNode?.nodeType || "-" }}</h2>
-				<div>{{ editorModel.selectedNode?.description || "-" }}</div>
-				<div>ID: {{ editorModel.selectedNode?._id || "-" }}</div>
-			</div>
-			<div
-				v-if="
-					editorModel.selectedNode &&
-					Object.keys(editorModel.selectedNode.ins).length > 0
-				"
+	<editor-page-layout>
+		<template #top>
+			Flow: {{ flowNodeId }}
+			<q-space />
+			<q-btn label="Deploy flow" color="green" dense></q-btn>
+		</template>
+		<template #left>
+			<q-toolbar-title> Flow Items: </q-toolbar-title>
+			<q-btn align="left" style="width: 100%" v-for="(val, key) in flowList" :icon="val.icon" :to="'flow\\' + val._oid">
+				&nbsp;&nbsp;{{ val.name }} ({{ val._oid }})</q-btn
 			>
-				&nbsp;
-				<h2>Inputs:</h2>
-				<table class="inputtable">
-					<tr v-for="(i, name) in editorModel.selectedNode?.ins" :key="i">
-						<td>{{ name }}</td>
-						<td>
-							<input type="text" v-model="i.v" />
-							<textarea v-model="i.v" />
-						</td>
-					</tr>
-				</table>
-			</div>
-			<div
-				v-if="
-					editorModel.selectedNode &&
-					Object.keys(editorModel.selectedNode.outs).length > 0
-				"
-			>
-				&nbsp;
-				<h2>Outputs:</h2>
-				<table class="inputtable">
-					<tr v-for="(o, name) in editorModel.selectedNode?.outs" :key="o">
-						<td>{{ name }}</td>
-						<td>
-							<div>{{ o.v }}</div>
-						</td>
-					</tr>
-				</table>
-			</div>
-			<code>{{ editorModel.selectedNode }}</code>
-		</aside>
-	</div>
+			<q-btn style="width: 100%" icon="add" v-on:click="newFlow()"></q-btn>
+		</template>
+		<template #right>
+			<property-editor :flowEditorModel="flowEditorModel">
+			</property-editor>
+			<q-scroll-area style="height: 100%">
+				<div style="font-size: xx-small; line-height: 100%; white-space: pre-wrap">
+					<!-- {{ YAML.stringify(flowEditorModel, (key: any, value: any) => (typeof value == "function" ? "F" : value), {}) }} -->
+					{{ JSON.stringify(flowEditorModel, null, 4) }}
+				</div>
+			</q-scroll-area>
+		</template>
+		<template #bottom>
+			ARI
+			<q-btn dense flat>
+				<q-badge transparent color="green"> v1.0.0 </q-badge>
+			</q-btn>
+
+			&NonBreakingSpace;
+			<q-btn dense flat icon="email">
+				<q-badge transparent color="yellow">10</q-badge>
+			</q-btn>
+
+			&NonBreakingSpace;
+			<q-btn dense flat icon="notifications">
+				<q-badge transparent color="red">3</q-badge>
+			</q-btn>
+		</template>
+
+		<div style="flex: 1">
+			<!-- style="flex: 1" needed to fill space in flexbox layout used by quasar q-page-container -->
+			<flow-canvas v-if="flowDataLoaded" :flowEditorModel="flowEditorModel" />
+			<div v-else>Loading flow data...</div>
+		</div>
+	</editor-page-layout>
 </template>
+
+<script setup lang="ts">
+	import { ref, reactive, onMounted, watch, computed, watchEffect } from "vue"
+	import { IFlowEditorModel, IFlowModel, IFlowNode, IFlowNodeTypeInfo } from "../common/flowTypes"
+	import { patch } from "../common/util"
+	import flowCanvas from "../components/Flow/FlowCanvas.vue" // @ is an alias to /src
+	import appBB from "../WsBBClient"
+	import EditorPageLayout from "../components/EditorPageLayout.vue"
+	import { useRoute } from "vue-router"
+	import PropertyEditor from "../components/Flow/PropertyEditor.vue"
+	import YAML from "yaml"
+import { NodeTypes } from "@vue/compiler-core"
+
+	const route = useRoute()
+	const flowNodeTypes = reactive({})
+	const flowList = reactive<{ [flowId: string]: IFlowModel }>({})
+	const selectedNode = ref<IFlowNode>()
+	const selectedNodeTypeInfo = ref<IFlowNodeTypeInfo>()
+	const flowModel = reactive<IFlowModel>({
+		_oid: "testID",
+		name: "FlowModelName",
+		type: ["FlowNode"],
+		nodeType: "Flow",
+		ins: {},
+		outs: {},
+		nodes: {},
+		connections: []
+	})
+	const editorModel = reactive({
+		selectedNodeId: "",
+		contextMenu: computed(generateContextMenu)
+	})
+	let nodeModels = reactive<{ [nodeId: string]: IFlowNode }>({}) // FIXME: Load dynamically based on nodes in flowModel!
+	let flowNodeTypeInfos = reactive<{ [typeName: string]: IFlowNodeTypeInfo }>({})
+	let flowEditorModel: IFlowEditorModel = { editorModel, flowModel, flowNodeTypeInfos, nodeModels }
+
+	// TODO: Use nodeId from router-route. Use watchEffect to retrieve new SubFlowNode data
+	const flowNodeId = ref<string>(route.params.id as string)
+	const flowDataLoaded = ref(true)
+
+	// Load all nodeModels for the nodes used in this FlowModel
+	watchEffect(async () => {
+		for(let nodeId in flowModel.nodes){
+			if(nodeId in nodeModels) continue
+			console.log("Getting nodeModel for:", nodeId)
+			appBB.sub(nodeId, (upd)=>{
+				nodeModels[nodeId] ||= {}
+				patch(upd, nodeModels[nodeId])
+			})
+		}
+		// TODO: Unsibscribe and remove nodeModels for nodes removed from this flowmodel.
+	})
+
+	onMounted(async () => {
+		await loadFlowNodeTypeInfos()
+		await loadFlowList()
+		await loadFlow()
+
+		// Keep nodeModels updated
+		// flowModel.nodes
+	})
+
+	async function loadFlowNodeTypeInfos() {
+		appBB.sub("idx:type=FlowNodeType", (upd) => {
+			for (let flowTypeInfoId in upd) {
+				if (upd[flowTypeInfoId] != null) {
+					appBB.sub(flowTypeInfoId, (flowTypeInfo) => {
+						console.log("flowTypeInfo", flowTypeInfoId, JSON.stringify(upd))
+						// group.push({
+						// 	label: flowTypeInfo.nodeType,
+						// 	icon: "add"
+						// })
+						flowNodeTypeInfos[flowTypeInfoId] = flowTypeInfo
+					})
+				} else {
+					// TODO: remove ...
+				}
+			}
+		})
+	}
+
+	interface IContextMenu {
+		[label: string]: {
+			icon?: string
+			onClick?: () => void
+			subMenu?: IContextMenu
+		}
+	}
+
+	function generateContextMenu() {
+		let groupMenu: IContextMenu = {}
+		let menu: IContextMenu = {
+			"Add function node": {
+				icon: "add",
+				subMenu: groupMenu
+			}
+		}
+		for (let flowTypeInfoId in flowNodeTypeInfos) {
+			let flowTypeInfo = flowNodeTypeInfos[flowTypeInfoId]
+			let nodeGroup = flowTypeInfo.nodeGroup
+			if (!(nodeGroup in groupMenu)) groupMenu[nodeGroup] = { subMenu: {} }
+			groupMenu[nodeGroup].subMenu![flowTypeInfo.nodeType] = {
+				icon: flowTypeInfo.icon,
+				onClick: (evt) => {
+					console.log("Clicked to add", flowTypeInfo, evt)
+					// Add new node.
+					// Add to FlowNode
+					let newNodeId = "~" + Math.random().toString()
+
+					flowModel.nodes[newNodeId] = { id: newNodeId, x: 0, y: 0 }
+					// Add model for node... (To be instantiated on server side.)
+					appBB.pub(newNodeId, { type: ["FlowNode"], nodeTypeId: flowTypeInfoId })
+				}
+			}
+		}
+		return menu
+	}
+
+	async function loadFlowList() {
+		appBB.sub("idx:type=RootFlow", (upd) => {
+			patch(upd, flowList)
+			for (let flowId in upd) {
+				appBB.sub(flowId, (upd) => {
+					flowList[flowId] ||= {}
+					patch(upd, flowList[flowId])
+				})
+			}
+		})
+	}
+
+	async function loadFlow() {
+		console.log("Loading node:", flowNodeId.value)
+		// TODO: Create loader "icon"
+		// get flow structure or root flowNode
+		// Get flowNode
+		// Display flowNode
+		// If desired flowNodeId doesn't exist try the root node.
+		if (!(await appBB.exists(flowNodeId.value))) {
+			console.log("Flow", flowNodeId.value, "does not exist!")
+			// If root node doesn't exist create it and use it!
+			flowNodeId.value = "theRootFlowNode"
+			if (!(await appBB.exists(flowNodeId.value))) {
+				console.log("Flow", flowNodeId.value, "does not exist - creating it!")
+				appBB.pub("theRootFlowNode", {
+					id: "theRootFlowNode",
+					type: "subflowNode",
+					ins: {},
+					outs: {},
+					nodes: [
+						{ id: "nodeWithID1", x: 50, y: 10 },
+						{ id: "nodeWithID2", x: 350, y: 10 }
+					],
+					connections: [
+						{
+							outNode: "nodeWithID1",
+							inNode: "nodeWithID2",
+							outName: "motion",
+							inName: "brightness"
+						}
+					]
+				})
+			}
+		}
+		console.log("Getting data for flow:", flowNodeId.value)
+		appBB.sub(flowNodeId.value, (upd, n) => {
+			console.log("Got data for flow:", upd)
+			patch(upd, flowModel, { setIfSame: false }) // Dynamically update if model changes on server.
+			if (upd.nodes) {
+				// update to nodes in flow.
+				// Subscribe to these nodes info!
+				for (let nodeId in upd.nodes) {
+					appBB.sub(nodeId, (upd) => {
+						nodeModels[nodeId] ||= {}
+						patch(upd, nodeModels[nodeId])
+					})
+				}
+			}
+			// flowModel.nodes = v.nodes
+			// flowModel.connections = v.connections
+			flowDataLoaded.value = true
+		})
+	}
+
+	function newFlow() {
+		console.log("Creating new flow...")
+		let newFlowId = "@ID:" + (Math.random() * Number.MAX_SAFE_INTEGER).toString(16)
+		let newFlow: IFlowModel = {
+			type: ["FlowNode", "RootFlow"],
+			nodeTypeId: "Flow",
+			name: "New Flow...",
+			nodes: {},
+			connections: []
+		}
+		appBB.pub(newFlowId, newFlow)
+	}
+
+	// editorModel.contextMenu =[
+	// 	{
+	// 		label: "Add function node",
+	// 		icon: "add",
+	// 		subMenu: [
+	// 			{
+	// 				label: "Logic",
+	// 				icon: "add",
+	// 				subMenu: [
+	// 					{
+	// 						label: "And",
+	// 						icon: "and",
+	// 						onClick: () => {
+	// 							console.log("And clicked!")
+	// 						}
+	// 					},
+	// 					{
+	// 						label: "Or",
+	// 						icon: "or",
+	// 						onClick: () => {
+	// 							console.log("Or clicked!")
+	// 						}
+	// 					}
+	// 				]
+	// 			},
+	// 			{
+	// 				label: "Timing",
+	// 				icon: "clock",
+	// 				subMenu: [
+	// 					{
+	// 						label: "Interval",
+	// 						icon: "clock",
+	// 						onClick: () => {
+	// 							console.log("Interval clicked!")
+	// 						}
+	// 					},
+	// 					{
+	// 						label: "Delay",
+	// 						icon: "delay",
+	// 						onClick: () => {
+	// 							console.log("Delay clicked!")
+	// 						}
+	// 					}
+	// 				]
+	// 			}
+	// 		]
+	// 	},
+	// 	{
+	// 		label: "Do more stuffs",
+	// 		icon: "question",
+	// 		onClick: () => {
+	// 			console.log("More stuffs?")
+	// 		}
+	// 	}
+	// ]
+</script>
 
 <style scoped>
 	flow-page {
@@ -92,196 +337,3 @@
 		background-color: darkslategrey;
 	}
 </style>
-
-<script setup lang="ts">
-	import { ref, reactive, onMounted, watch } from "vue"
-	import { IDbObject, IFlow, IIdDbObject } from "../common/flowTypes"
-	import { patch } from "../common/util"
-	import flowCanvas from "../components/Flow/FlowCanvas.vue" // @ is an alias to /src
-	import appBB from "../WsBBClient"
-
-	const flowModel = reactive({
-		nodes: {},
-		connections: {},
-	})
-	const editorModel = reactive({
-		selectedNode: null,
-		contextMenu: {},
-	})
-
-	// let flowNodeCache: any = null
-	// TODO: Use nodeId from router-route. Use watchEffect to retrieve new SubFlowNode data
-	const flowNodeId = ref("randomFlowNode")
-	const flowDataLoaded = ref(false)
-
-	onMounted(async () => {
-		await loadFlow()
-	})
-
-	async function loadFlow() {
-		// TODO: Create loader "icon"
-		// get flow structure or root flowNode
-		// Get flowNode
-		// Display flowNode
-		// If desired flowNodeId doesn't exist try the root node.
-		if (!(await appBB.exists(flowNodeId.value))) {
-			console.log("Flow", flowNodeId.value, "does not exist!")
-			// If root node doesn't exist create it and use it!
-			flowNodeId.value = "rootFlowNode"
-			if (!(await appBB.exists(flowNodeId.value))) {
-				console.log("Flow", flowNodeId.value, "does not exist - creating it!")
-				appBB.pub("rootFlowNode", {
-					id: "rootFlowNode",
-					type: "subflowNode",
-					ins: {},
-					outs: {},
-					nodes: [
-						{ id: "nodeWithID1", x: 50, y: 10 },
-						{ id: "nodeWithID2", x: 350, y: 10 },
-					],
-					connections: [
-						{
-							outNode: "nodeWithID1",
-							inNode: "nodeWithID2",
-							outName: "motion",
-							inName: "brightness",
-						},
-					],
-				})
-			}
-		}
-		console.log("Getting data for flow:", flowNodeId.value)
-		appBB.sub(flowNodeId.value, (v, n) => {
-			flowNodeCache = v
-			patch(v.nodes, flowModel.nodes, { setIfSame: false })
-			patch(v.connections, flowModel.connections, { setIfSame: false })
-			// flowModel.nodes = v.nodes
-			// flowModel.connections = v.connections
-			flowDataLoaded.value = true
-		})
-	}
-
-	let flowNodeCache: any = null
-	watch(flowModel, (n: any, o: any) => {
-		// if (!flowDataLoaded.value) return
-		console.log("WATCH:", n, o)
-		// TODO: Debounce to not save on every change!
-		// FIXME: Only send if we changed something - not if someone else changed something!
-		if(flowNodeCache) {
-			flowNodeCache.nodes = n.nodes
-			flowNodeCache.connections = n.connections
-			console.log("PUB:", JSON.stringify(n.nodes))
-			appBB.pub(flowNodeId.value, flowNodeCache)
-		}
-	})
-
-	let contextmenuSelected = (evt: any) => {
-		console.log("MenuAction:", evt)
-		appBB.pub("newNode", { id: "newNode", type: "newNodeType" })
-		flowModel.nodes["newNode"] = { type: "NewNodeType", x: 0, y: 0 }
-	}
-
-	editorModel.contextMenu = {
-		root: true,
-		subMenu: [
-			{
-				text: "Add function",
-				subMenu: [
-					{
-						text: "Logic",
-						subMenu: [{ text: "AND" }, { text: "OR" }, { text: "NOT" }],
-					},
-					{
-						text: "Math",
-						subMenu: [{ text: "Add" }],
-					},
-					{
-						text: "Timing",
-						subMenu: [{ text: "Ticker" }, { text: "Delay" }],
-					},
-					{
-						text: "System",
-						subMenu: [{ text: "Execute" }],
-					},
-				],
-			},
-		],
-	}
-	// const isObj = (obj: any) => obj && typeof obj == "object"
-	// const isArr = (arr: any) => Array.isArray(arr)
-	// const different = (newO: any, oldO: any): boolean => {
-	// 	for (let newP in newO) {
-	// 		if (!(newP in oldO)) return true
-
-	// 		if (isObj(newO[newP])) {
-	// 			if (isObj(oldO[newP])) return different(newO[newP], oldO[newP])
-	// 			else return true
-	// 		} else {
-	// 			if (isObj(oldO[newP])) return true
-	// 			else return newO[newP] != oldO[newP]
-	// 		}
-	// 	}
-	// 	return false
-	// }
-
-	// let subflowModel = {
-	// 	nid: "nid1",
-	// 	type: "subflowNode",
-	// 	ins: {},
-	// 	outs: {},
-	// 	nodes: {
-	// 		nid1: {
-	// 			x: 50,
-	// 			y: 10,
-	// 		},
-	// 	},
-	// 	connections: {},
-	// }
-
-	// editorModel.nodes = {
-	// 	nid1: {
-	// 		nid: "nid1",
-	// 		type: "MySGW.Device",
-	// 		x: 50,
-	// 		y: 10,
-	// 		ins: {},
-	// 		outs: {
-	// 			motion: { type: "oBoolean" },
-	// 		},
-	// 	},
-	// 	nid2: {
-	// 		nid: "nid2",
-	// 		type: "HueGW.Lamp",
-	// 		x: 300,
-	// 		y: 10,
-	// 		ins: {
-	// 			brightness: { type: "iValue" },
-	// 			colorTemp: { type: "oNumber" },
-	// 		},
-	// 		outs: {
-	// 			brightness: { type: "oValue" },
-	// 			colorTemp: { type: "oNumber" },
-	// 		},
-	// 		settings: {},
-	// 	},
-	// 	nid3: {
-	// 		nid: "nid3",
-	// 		type: "Graph Input",
-	// 		x: 550,
-	// 		y: 10,
-	// 		ins: {},
-	// 		outs: {
-	// 			name: {},
-	// 		},
-	// 		settings: {},
-	// 	},
-	// }
-	// editorModel.connections = [
-	// 	{
-	// 		outNode: "nid1",
-	// 		inNode: "nid2",
-	// 		outName: "motion",
-	// 		inName: "brightness",
-	// 	},
-	// ]
-</script>

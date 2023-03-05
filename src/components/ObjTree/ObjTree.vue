@@ -5,9 +5,9 @@
 			<th align="left">Value</th>
 		</tr>
 		<obj-row
-			v-for="(value, prop) in object"
+			v-for="(obj, prop) in object"
 			:prop="prop"
-			:value="value[prop]"
+			:value="obj"
 			:level="0"
 			:tableSettings="{ propWidth: 200 }"
 		/>

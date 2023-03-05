@@ -4,26 +4,47 @@
 
 <script setup lang="ts">
 	import { ref, defineProps, computed } from 'vue';
-	const props = defineProps<{connection: any, nodes: any}>()
+	import { IFlowEditorModel, IFlowConnection } from '../../common/flowTypes'
+	
+	const props = defineProps<{
+		flowEditorModel: IFlowEditorModel,
+		connection: IFlowConnection, 
+	}>()
+	let nodes = props.flowEditorModel.nodeModels
+	let nodeTypes = props.flowEditorModel.flowNodeTypeInfos
 
-	const selected = ref(null)
+	const selected = ref(false)
 
 	const connectionPath = computed(()=> {
         // Find nodes
-        var outNode = props.nodes[props.connection.outNode];
-        var inNode = props.nodes[props.connection.inNode];
-        if(!outNode || !inNode) return; // error - ignore.
-
+        var outNode = nodes[props.connection.outputNodeId];
+        var inNode = nodes[props.connection.inputNodeId];
+        if(!outNode || !inNode) {
+			console.log("Error: Node not found for NodeConnection!", props.connection.outputNodeId, "or", props.connection.inputNodeId)
+			return; // error - ignore.
+		}
+		var outNodeType = nodeTypes[outNode.nodeTypeId];
+        var inNodeType = nodeTypes[inNode.nodeTypeId];
+		if(!outNodeType || !inNodeType) {
+			console.log("Error: Node Type info not found for NodeConnection!", props.connection.outputNodeId, "or", props.connection.inputNodeId)
+			return; // error - ignore.
+		}
         // Find port indexes.
-        var outIdx = Object.keys(outNode.outs).indexOf(props.connection.outName);
-        var inIdx = Object.keys(inNode.ins).indexOf(props.connection.inName);
-        if(outIdx == undefined || inIdx == undefined) return; // error - ignore.
-
+        var outIdx = Object.keys(outNodeType.outs!).indexOf(props.connection.outputName);
+        var inIdx = Object.keys(inNodeType.ins!).indexOf(props.connection.inputName);
+        if(outIdx < 0 || inIdx < 0) {
+			console.log("Error: Index of IO name not found in nodes.")
+			return; // error - ignore.
+		}
+		
+		// console.log("**Indexes", outIdx, inIdx)
+		let EditorInputNodeInfo = props.flowEditorModel.flowModel.nodes[props.connection.inputNodeId]
+		let EditorOutputNodeInfo = props.flowEditorModel.flowModel.nodes[props.connection.outputNodeId]
         // Create path.
-        var d = "M " + (outNode.x + (outNode.__width || 100) + 10) + "," + (outNode.y + 35 + outIdx * 25) +
-        " C " + (outNode.x + (outNode.__width || 100)  + 10 + 50) + "," + (outNode.y + 35 + outIdx * 25) +
-        " " + (inNode.x - 10 - 50) + "," + (inNode.y + 35 + inIdx * 25) +
-        " " + (inNode.x - 10) + "," + (inNode.y + 35 + inIdx * 25);
+        var d = "M " + (EditorOutputNodeInfo.x + (EditorOutputNodeInfo.__width || 100) + 10) + "," + (EditorOutputNodeInfo.y + 35 + outIdx * 25) +
+        " C " + (EditorOutputNodeInfo.x + (EditorOutputNodeInfo.__width || 100)  + 10 + 50) + "," + (EditorOutputNodeInfo.y + 35 + outIdx * 25) +
+        " " + (EditorInputNodeInfo.x - 10 - 50) + "," + (EditorInputNodeInfo.y + 35 + inIdx * 25) +
+        " " + (EditorInputNodeInfo.x - 10) + "," + (EditorInputNodeInfo.y + 35 + inIdx * 25);
         return d;
 	})
 	const mouseDown = (evt)=> {

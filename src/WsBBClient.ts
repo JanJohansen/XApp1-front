@@ -45,8 +45,8 @@ class WsBBClient {
 			this.protocolHandler.notify("sub", { n: name })
 		} else {
 			// Already subscribed from server
-			// Get local intial val.
-			cb(this.subs[name].lastVal, name)
+			// Get local cached value - _if it was retrived by a "val" update_
+			if(this.subs[name].lastVal != undefined) cb(this.subs[name].lastVal, name)
 		}
 		this.subs[name].cbs.push(cb)
 	}
@@ -62,7 +62,7 @@ class WsBBClient {
 	constructor(config: any = undefined) {
 		this._connect()
 		this.protocolHandler.on("val", (args) => {
-			console.log("WsBBC.rx.VAL", args)
+			// console.log("WsBBC.rx.VAL", args)
 			let subs = this.subs[args.n]
 			if (subs) {
 				subs.cbs.forEach((cb) => {
@@ -73,7 +73,7 @@ class WsBBClient {
 			// Cache value for subsequext subscriptionms to already subscribed BB items.
 		})
 		this.protocolHandler.on("evt", (args) => {
-			console.log("WsBBC.rx.EVT", args)
+			// console.log("WsBBC.rx.EVT", args)
 			let subs = this.events[args.n]
 			if (subs) {
 				subs.forEach((cb) => {

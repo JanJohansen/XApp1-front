@@ -1,14 +1,7 @@
 <template>
-	<g :transform="'translate(' + editorNodeModel.x + ',' + editorNodeModel.y + ')'">
+	<g v-if="n.nodeTypeInfo && n.nodeModel" :transform="'translate(' + flowModelNodeData.x + ',' + flowModelNodeData.y + ')'">
 		<defs>
-			<linearGradient
-				spreadMethod="pad"
-				y2="0"
-				x2="0"
-				y1="1"
-				x1="0"
-				id="nodeBackgroundGradient"
-			>
+			<linearGradient spreadMethod="pad" y2="0" x2="0" y1="1" x1="0" id="nodeBackgroundGradient">
 				<stop offset="0" stop-color="#dddddd" />
 				<stop offset="0.6" stop-color="#f7f7f7" />
 			</linearGradient>
@@ -17,7 +10,7 @@
 			@mousedown.prevent="mouseDown($event)"
 			:class="{
 				'node-rect': true,
-				'selected-node-rect': editorModel.selectedNode == editorNodeModel,
+				'selected-node-rect': editorModel.selectedNodeId == nodeId
 			}"
 			ry="5"
 			rx="5"
@@ -27,18 +20,12 @@
 			:height="height"
 			fill="url(#nodeBackgroundGradient)"
 		/>
-		<text
-			ref="svgTextHeading"
-			class="node-name-text"
-			:x="width / 2"
-			y="3"
-			text-anchor="middle"
-			dominant-baseline="hanging"
-			>{{ nodeModel.type }}</text
-		>
+		<text ref="svgTextHeading" class="node-name-text" :x="width / 2" y="3" text-anchor="middle" dominant-baseline="hanging">
+			{{ n.nodeTypeInfo.nodeType }}
+		</text>
 
 		<g
-			v-for="(input, name, i) in nodeModel.ins"
+			v-for="(input, name, i) in n.nodeTypeInfo.ins"
 			:key="'in_' + name"
 			@mousedown.stop.prevent="inputMouseDown($event, i)"
 			@mouseup.stop.prevent="inputMouseUp($event, i)"
@@ -60,7 +47,7 @@
 		</g>
 
 		<g
-			v-for="(output, name, i) in nodeModel.outs"
+			v-for="(output, name, i) in n.nodeTypeInfo.outs"
 			:key="'out_' + name"
 			@mousedown.stop.prevent="outputMouseDown($event, i)"
 			@mouseup.stop.prevent="outputMouseUp($event, i)"
@@ -82,61 +69,69 @@
 			>
 		</g>
 	</g>
+	<g v-else :transform="'translate(' + flowModelNodeData.x + ',' + flowModelNodeData.y + ')'">
+		<rect
+			@mousedown.prevent="mouseDown($event)"
+			:class="{
+				'node-rect': true,
+				'selected-node-rect': editorModel.selectedNodeId == nodeId
+			}"
+			ry="5"
+			rx="5"
+			x="0"
+			y="0"
+			:width="width"
+			:height="height"
+			fill="red"
+		/>
+		<text ref="svgTextHeading" class="node-name-text" :x="width / 2" y="3" text-anchor="middle" dominant-baseline="hanging">
+			Unknown node!
+		</text>
+	</g>
 </template>
 
 <script setup lang="ts">
-	import { ref, onMounted, computed, defineEmits } from "vue"
-	import appBB from "../../WsBBClient"
+	import { ref, reactive, onMounted, computed, defineEmits, watchEffect } from "vue"
+	import { IFlowDragConnection, IFlowEditorModel, IFlowNodeTypeInfo, IFlowNode } from "../../common/flowTypes"
 
-	const props = defineProps(["editorModel", "editorNodeModel", "newconnection"])
+	// const props = defineProps(["editorModel", "editorNodeModel", "newconnection"])
+	const props = defineProps<{
+		flowEditorModel: IFlowEditorModel
+		nodeId: string
+		newconnection: IFlowDragConnection
+	}>()
 	const emit = defineEmits(["onnewconnection"])
 
 	// const width = ref(100)
 	const svgTextHeading = ref<SVGGraphicsElement>(null)
 	const inTextElements = ref<SVGGraphicsElement[]>([])
 	const outTextElements = ref<SVGGraphicsElement[]>([])
-	const nodeModel = ref({ type: "..." })
+
+	let editorModel = props.flowEditorModel.editorModel
+	// Get data (nodeModel + nodeTypeInfo) for node
+	const n = reactive<{nodeModel: IFlowNode, nodeTypeInfo: IFlowNodeTypeInfo }>({})
+	watchEffect( () => {
+		n.nodeModel = props.flowEditorModel.nodeModels[props.nodeId]
+		if(n.nodeModel) n.nodeTypeInfo = props.flowEditorModel.flowNodeTypeInfos[n.nodeModel.nodeTypeId]
+		console.log(props.nodeId, n)
+	})
+
+	let flowModelNodeData = props.flowEditorModel.flowModel.nodes[props.nodeId]
 
 	let dragging = false
 	let nodeStartX = 0
 	let nodeStartY = 0
 
-	console.log("NEW NODE:", props.editorNodeModel.id, "=", props.node)
-
-	// Check if node exists
-	appBB.exists(props.editorNodeModel.id).then((exists) => {
-		if (!exists) {
-			// If not - show "missing node"
-			console.log("MISSING NODE:", props.editorNodeModel.id, exists)
-			nodeModel.value.type = "Unknown?"
-		} else {
-			// If it does - subcscribe to object
-			console.log("EXISTING NODE:", props.editorNodeModel.id, exists)
-			appBB.sub(props.editorNodeModel.id, (v, n) => {
-				console.log("EXISTING NODE:", n, "=", v)
-				nodeModel.value = v
-			})
-		}
-	})
-	setTimeout(() => {
-		nodeModel.value.type = "Unknown?---1"
-		setTimeout(() => {
-			nodeModel.value.type = "Unknown?---2"
-		}, 2000)
-	}, 2000)
-
 	onMounted(() => {
-		props.editorNodeModel.x = props.editorNodeModel.x || 0
-		props.editorNodeModel.y = props.editorNodeModel.y || 0
+		flowModelNodeData.x = flowModelNodeData.x || 0
+		flowModelNodeData.y = flowModelNodeData.y || 0
 	})
 
 	const width = computed(() => {
 		// Calculate with based on texts in node.
 		let widths: number[] = []
 
-		let test = nodeModel.value.type	// HACK: Force recalculation of the computed propoerty when this reactive value changes!
-
-		console.log("svgTextHeading.value", svgTextHeading.value)
+		// console.log("svgTextHeading.value", svgTextHeading.value)
 		if (svgTextHeading.value) widths.push(svgTextHeading.value.getBBox().width)
 
 		if (inTextElements.value) {
@@ -157,34 +152,28 @@
 		}
 
 		// width.value = maxWidth + 15
-		// FIXME: Dont set width onthe model!?
-		props.editorNodeModel.__width = width
+		// FIXME: Dont set width on the model?
+		flowModelNodeData.__width = width // Used on connections!
 		return maxWidth + 15
 	}, {})
 
 	const height = computed(() => {
-		nodeModel.value.ins ||= {}
-		nodeModel.value.outs ||= {}
-		return (
-			Math.max(
-				Object.keys(nodeModel.value.ins).length,
-				Object.keys(nodeModel.value.outs).length
-			) *
-				25 +
-			30
-		)
+		if (!n.nodeTypeInfo) return 30
+		n.nodeTypeInfo.ins ||= {}
+		n.nodeTypeInfo.outs ||= {}
+		return Math.max(Object.keys(n.nodeTypeInfo.ins).length, Object.keys(n.nodeTypeInfo.outs).length) * 25 + 30
 	})
 	const mouseDown = (evt) => {
 		evt.stopPropagation()
-		//console.log("MouseDown:, ", event);
+		console.log("MouseDown:, ", evt)
 		window.addEventListener("mousemove", mouseMove)
 		window.addEventListener("mouseup", mouseUp)
 		dragging = true
 		var pos = cursorPoint(evt)
-		nodeStartX = pos.x - props.editorNodeModel.x
-		nodeStartY = pos.y - props.editorNodeModel.y
+		nodeStartX = pos.x - flowModelNodeData.x
+		nodeStartY = pos.y - flowModelNodeData.y
 
-		props.editorModel.selectedNode = props.node
+		editorModel.selectedNodeId = props.nodeId // nodeModel._oid
 	}
 	const mouseMove = (evt) => {
 		evt.stopPropagation()
@@ -199,14 +188,14 @@
 			let newX = pos.x - nodeStartX
 			let newY = pos.y - nodeStartY
 			if (true) {
-				// If grid tuned on
+				// If grid tuned on - FIXME: Make part of flowEditorModel
 				newX -= newX % 12.5
 				newY -= newY % 12.5
 				// props.node.x -= props.node.x % 12.5
 				// props.node.y -= props.node.y % 12.5
 			}
-			if (newX != props.editorNodeModel.x) props.editorNodeModel.x = newX
-			if (newY != props.editorNodeModel.y) props.editorNodeModel.y = newY
+			if (newX != flowModelNodeData.x) flowModelNodeData.x = newX
+			if (newY != flowModelNodeData.y) flowModelNodeData.y = newY
 		}
 	}
 	const mouseUp = (evt) => {
@@ -222,7 +211,7 @@
 	// Get point in global SVG space
 	let svg: any
 	const cursorPoint = (evt) => {
-		if (!svg) svg = evt.target.ownerSVGElement // Cache the svg element!
+		if (!svg) svg = evt.target.ownerSVGElement // Cache this svg element!
 		var pt = svg.createSVGPoint()
 		pt.x = evt.clientX
 		pt.y = evt.clientY
@@ -232,72 +221,61 @@
 	//-------------------------------------------------------------------------
 	// New connection handling
 	const inputMouseDown = (evt, i) => {
-		props.newconnection.value.inNode = props.node
-		props.newconnection.inIdx = i
+		console.log("InputMouseDown:", evt, i, n.nodeTypeInfo)
+		props.newconnection.startX = flowModelNodeData.x
+		props.newconnection.startY = flowModelNodeData.y + i * 25
+		props.newconnection.inputNodeId = props.nodeId
+		props.newconnection.inputName = Object.keys(n.nodeTypeInfo.ins!)[i]
 		props.newconnection.dragpos = cursorPoint(evt)
+
 		window.addEventListener("mousemove", newConnectorMouseMove)
 		window.addEventListener("mouseup", newConnectorMouseUp)
 	}
 	const inputMouseUp = (evt, i) => {
-		if (props.newconnection && props.newconnection.outNode) {
-			var outName = Object.keys(props.newconnection.outNode.outs)[
-				props.newconnection.outIdx
-			]
-			var inName = Object.keys(props.node.ins)[i]
-			console.log(
-				"New connection:",
-				props.newconnection.outNode.type + "." + outName,
-				props.node.type + "." + inName
-			)
+		if (props.newconnection && props.newconnection.outputNodeId) {
+			console.log("New connection:", props.newconnection)
 			emit("onnewconnection", {
-				outNode: props.newconnection.outNode.nid,
-				outName: outName,
-				inNode: props.node.nid,
-				inName: inName,
+				outputNodeId: props.newconnection.outputNodeId,
+				outputName: props.newconnection.outputName,
+				inputNodeId: props.nodeId,
+				inputName: Object.keys(n.nodeTypeInfo.ins!)[i]
 			})
 		}
-		props.newconnection.inNode = null
-		props.newconnection.outNode = null
-		window.removeEventListener("mousemove", newConnectorMouseMove)
-		window.removeEventListener("mouseup", newConnectorMouseUp)
+		newConnectorMouseUp()
+		// window.removeEventListener("mousemove", newConnectorMouseMove)
+		// window.removeEventListener("mouseup", newConnectorMouseUp)
 	}
 	const outputMouseDown = (evt, i) => {
-		props.newconnection.outNode = props.node
-		props.newconnection.outIdx = i
+		props.newconnection.startX = flowModelNodeData.x + width.value
+		props.newconnection.startY = flowModelNodeData.y + i * 25
+		props.newconnection.outputNodeId = props.nodeId
+		props.newconnection.outputName = Object.keys(n.nodeTypeInfo.outs!)[i]
 		props.newconnection.dragpos = cursorPoint(evt)
 		window.addEventListener("mousemove", newConnectorMouseMove)
 		window.addEventListener("mouseup", newConnectorMouseUp)
 	}
 	const outputMouseUp = (evt, i) => {
-		if (props.newconnection && props.newconnection.inNode) {
-			var inName = Object.keys(props.newconnection.inNode.ins)[
-				props.newconnection.inIdx
-			]
-			var outName = Object.keys(nodeModel.value.outs)[i]
-			console.log(
-				"New connection:",
-				nodeModel.value.type + "." + outName,
-				props.newconnection.inNode.type + "." + inName
-			)
+		if (props.newconnection && props.newconnection.inputNodeId) {
+			console.log("New connection:", props.newconnection)
 			emit("onnewconnection", {
-				outNode: nodeModel.value.id,
-				outName: outName,
-				inNode: props.newconnection.inNode.nid,
-				inName: inName,
+				outputNodeId: props.nodeId,
+				outputName: Object.keys(n.nodeTypeInfo.outs!)[i],
+				inputNodeId: props.newconnection.inputNodeId,
+				inputName: props.newconnection.inputName
 			})
 		}
-		props.newconnection.inNode = null
-		props.newconnection.outNode = null
-		window.removeEventListener("mousemove", newConnectorMouseMove)
-		window.removeEventListener("mouseup", newConnectorMouseUp)
+		newConnectorMouseUp()
+		// window.removeEventListener("mousemove", newConnectorMouseMove)
+		// window.removeEventListener("mouseup", newConnectorMouseUp)
 	}
 	const newConnectorMouseMove = (evt) => {
 		evt.stopPropagation()
 		props.newconnection.dragpos = cursorPoint(evt)
 	}
 	const newConnectorMouseUp = () => {
-		props.newconnection.inNode = null
-		props.newconnection.outNode = null
+		console.log("NewConnMouseUp!")
+		props.newconnection.inputNodeId = undefined
+		props.newconnection.outputNodeId = undefined
 		window.removeEventListener("mousemove", newConnectorMouseMove)
 		window.removeEventListener("mouseup", newConnectorMouseUp)
 	}

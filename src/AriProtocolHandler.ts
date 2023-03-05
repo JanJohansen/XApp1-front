@@ -107,7 +107,7 @@ export class AriProtocolHandler {
                 this.batching = false
             }, 1);
         } else {
-            console.log("Batching:", message)
+            // console.log("Batching:", message)
             this.batch.push(message)
         }
     }

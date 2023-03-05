@@ -4,36 +4,32 @@
 
 <script setup lang="ts">
     import { computed } from "vue";
+    import { IFlowDragConnection } from "../../common/flowTypes"
 
-    const props = defineProps(["newconnection"])
+    const props = defineProps<{
+		newconnection: IFlowDragConnection, 
+	}>()
 
     const connectionPath=computed(()=> {
-        if(props.newconnection.inNode){
-            // Dragging new connection from an input port.
-            let inNode = props.newconnection.inNode;
-            let inIdx = props.newconnection.inIdx;
-            let dragpos = props.newconnection.dragpos;
+        let dragpos = props.newconnection.dragpos;
+        let connection = props.newconnection
 
-            // Create path.
+        if(props.newconnection.inputNodeId){
+            // Dragging new connection from an input port.
             var d = "M " + (dragpos.x + 10) + "," + dragpos.y +
                 " C " + (dragpos.x + 10 + 50) + "," + dragpos.y +
-                " " + (inNode.x - 10 - 50) + "," + (inNode.y + 35 + inIdx * 25) +
-                " " + (inNode.x - 10) + "," + (inNode.y + 35 + inIdx * 25);
+                " " + (connection.startX - 10 - 50) + "," + (connection.startY + 35) +
+                " " + (connection.startX - 10) + "," + (connection.startY + 35);
             return d;
-        } else if(props.newconnection.outNode){
+        } else if(props.newconnection.outputNodeId){
             // Dragging new connection from an output port.
-            let outNode = props.newconnection.outNode;
-            let outIdx = props.newconnection.outIdx;
-            let dragpos = props.newconnection.dragpos;
-
-            // Create path.
-            var d = "M " + (outNode.x + outNode.__width + 10) + "," + (outNode.y + 35 + outIdx * 25) +
-            " C " + (outNode.x + outNode.__width + 10 + 50) + "," + (outNode.y + 35 + outIdx * 25) +
+            var d = "M " + (connection.startX + 10) + "," + (connection.startY + 35) +
+            " C " + (connection.startX + 10 + 50) + "," + (connection.startY + 35) +
             " " + (dragpos.x - 10 - 50) + "," + dragpos.y +
             " " + (dragpos.x - 10) + "," + dragpos.y;
             return d;
         }
-        return null;
+        return "";
     })
 </script>
 

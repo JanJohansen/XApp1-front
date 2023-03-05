@@ -1,61 +1,51 @@
 <template>
-  <div
-    v-show="isVisible"
-    class="context-menu"
-    :style="style"
-    tabindex="-1"
-    @blur="close"
-    @click="close"
-    @contextmenu.capture.prevent>
-    <slot :user-data="userData"></slot>
-  </div>
+	<q-menu anchor="top end" self="top start" transition-duration="0">
+		<!-- touch-position context-menu -->
+		<q-list dense>
+			<q-item
+				clickable
+				v-for="(item, label) in contextMenuModel"
+				@click="(e)=>onclick(item, e)"
+				v-close-popup="item.subMenu != undefined ? false: true"
+			>
+				<q-item-section :icon="item.icon">
+					{{ label }}
+				</q-item-section>
+				<q-item-section side v-if="item.subMenu">
+					<q-icon name="keyboard_arrow_right" />
+				</q-item-section>
+				<context-menu v-if="item.subMenu" :context-menu-model="item.subMenu!"></context-menu>
+			</q-item>
+			<q-separator />
+		</q-list>
+	</q-menu>
 </template>
 
-<script lang="ts">
-export default {
-  name: "context-menu",
-  data() {
-    return {
-      x: null,
-      y: null,
-      userData: null
-    };
-  },
-  computed: {
-    style() {
-      return this.isVisible
-        ? {
-            top: this.y - document.body.scrollTop + "px",
-            left: this.x + "px"
-          }
-        : {};
-    },
-    isVisible() {
-      return this.x !== null && this.y !== null;
-    }
-  },
-  methods: {
-    open(evt, userData) {
-      this.x = evt.pageX || evt.clientX;
-      this.y = evt.pageY || evt.clientY;
-      this.userData = userData;
-      /*Vue.nextTick(() =>*/ this.$el.focus();
-    },
-    close(evt) {
-      this.x = null;
-      this.y = null;
-      this.userData = null;
-    }
-  }
-};
+<script setup lang="ts">
+	import { ref } from "vue"
+	import ContextMenu from "./ContextMenu.vue"
+	// interface IContextMenuItem {
+	// 	label?: string
+	// 	icon?: string
+	// 	onClick?: () => void
+	// 	subMenu?: IContextMenuItem[]
+	// }
+	interface IContextMenu {
+		[label: string]: {
+			icon?: string
+			onClick?: () => void
+			subMenu?: IContextMenu
+		}
+	}
+
+	const props = defineProps<{
+		contextMenuModel: IContextMenu
+	}>()
+
+	function onclick(item, e){
+		if (item.onClick) item.onClick(e)
+	}
+
 </script>
 
-<style scoped>
-.context-menu {
-  position: fixed;
-  z-index: 999;
-}
-.context-menu:focus {
-  outline: none;
-}
-</style>
+<style scoped></style>

@@ -1,13 +1,7 @@
 <template>
 	<div class="editor">
-		<!-- FIXME: embed contextmenu and mousedown in context-meny element-->
-		<context-menu ref="contextmenu">
-			<flow-tree-menu-item 
-				ref="rootMenu" 
-				:items="editorModel.contextMenu.subMenu" 
-				@menuSelected="$emit('menuSelected', $event)" 
-			/>
-		</context-menu>
+		<!-- touch-position context-menu needed for top level context menu - but not remaining template! -->
+		<context-menu touch-position context-menu :context-menu-model="editorModel.contextMenu"/>
 		<svg
 			class="svgCanvas"
 			ref="svgCanvas"
@@ -15,26 +9,21 @@
 			:viewBox="viewBox"
 			tabindex="1"
 			preserveAspectRatio="xMinYMin meet"
-			@mousedown.left="mouseDown($event); contextmenu.close();"
-			@click.right.prevent.stop="contextmenu.open($event);rootMenu.selectedItem = null;"
+			@mousedown.left="mouseDown($event)"
 		>
 			<flow-node
 				v-for="node in flowModel.nodes"
-				:editorNodeModel="node"
-				:newconnection="newconnection"
+				:flow-editor-model="props.flowEditorModel"
+				:node-id="node.id"
+				:nodeModel="node"
 				:editorModel="editorModel"
+				:newconnection="newconnection"
+				:nodes="flowEditorModel.nodeModels"
+				:flow-model="flowModel"
 				@onnewconnection="newConnection($event)"
 			/>
-			<!-- @nodeSelected="$emit('nodeSelected', node)" -->
-			<flow-connection v-for="(value, name) in flowModel.connections" :key="name" :connection="value" :nodes="flowModel.nodes" />
+			<flow-connection v-for="(value, name) in flowModel.connections" :key="name" :flow-editor-model="flowEditorModel" :connection="value" />
 			<flow-drag-connection v-if="true" :newconnection="newconnection" />
-
-			<!-- New connection 
-            <svg:path *ngIf="flow._newConnection"
-                class="dragging-connection-line"
-                [attr.d]= "getNewConnectionPath(flow._newConnection.x1, flow._newConnection.y1, flow._newConnection.x2, flow._newConnection.y2)"
-            >
-            </svg:path>-->
 		</svg>
 	</div>
 </template>
@@ -47,20 +36,26 @@
 	import FlowTreeMenu from "./FlowTreeMenu.vue"
 	import FlowTreeMenuItem from "./FlowTreeMenuItem.vue"
 	import { ref, computed } from "vue"
+	import { IFlowDragConnection, IFlowEditorModel } from "../../common/flowTypes"
 
 	const props = defineProps<{
-		editorModel: any,
-		flowModel: any
+		flowEditorModel: IFlowEditorModel
+		// editorModel: any
+		// flowModel: IFlow
 	}>()
+	let editorModel = props.flowEditorModel.editorModel
+	let flowModel = props.flowEditorModel.flowModel
+	let nodes = props.flowEditorModel.nodeModels
 
 	const svgCanvas = ref(null)
 	const contextmenu = ref(null)
 	const rootMenu = ref(null)
-	const newconnection = ref({ inNode: null, outNode: null, inIdx: 0, outIdx: 0, dragpos: { x: 0, y: 0 } })
+	const newconnection = ref<IFlowDragConnection>({})
 	const vBox = ref({ x: 0, y: 0, w: 900, h: 500 })
 
 	let dragging = false
-	let dragstart = null
+	let dragstart = { m: { x: 0, y: 0 } }
+	// let dragstart = null
 	let dragPos
 
 	console.log("FlowCanvas.props.editorModel", props.editorModel)
@@ -75,9 +70,10 @@
 		window.addEventListener("mousemove", mouseMove)
 		window.addEventListener("mouseup", mouseUp)
 		dragging = true
-		dragstart = { m: cursorPoint(evt), boxX: vBox.x, boxY: vBox.y }
+		// dragstart = { m: cursorPoint(evt), boxX: vBox.value.x, boxY: vBox.y }
+		dragstart = { m: cursorPoint(evt) }
 		dragPos = cursorPoint(evt)
-		props.editorModel.selectedNode = null
+		editorModel.selectedNodeId = ""
 	}
 	const mouseMove = (evt) => {
 		if (dragging) {
@@ -98,7 +94,7 @@
 	const svgKeyDown = (evt) => {}
 	const newConnection = (evt) => {
 		console.log(evt)
-		props.editorModel.connections.push(evt)
+		flowModel.connections.push(evt)
 	}
 	// Get point in global SVG space
 	const cursorPoint = (evt) => {

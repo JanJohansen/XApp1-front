@@ -8,7 +8,7 @@
 
 <script setup lang="ts">
 	import { useRouter, useRoute } from "vue-router"
-	import { reactive } from "vue"
+	import { reactive, ref } from "vue"
 	import db from "../ObjDbClient"
 	import appBB from "../WsBBClient"
 	import ObjTree from "../components/ObjTree/ObjTree.vue"
@@ -26,6 +26,17 @@
 			appBB.sub(item, (v, n) => {
 				console.log("Subbed:", { obj: n, value: v, type: typeof v })
 				patch(objects, n, v)
+			})
+		}
+	})
+
+	// Get Values!
+	appBB.sub("vIndex", (args) => {
+		console.log("vIndex", args)
+		for (let item in args) {
+			appBB.sub(item, (v, n) => {
+				// console.log("vUpdtae:", n, "=", v, objects)
+				objects[n] = v
 			})
 		}
 	})

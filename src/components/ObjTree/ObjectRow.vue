@@ -1,15 +1,15 @@
 <template>
-	<tr class="table-row" @click="rowClick" >
-		<template v-if="typeof value == 'object'" :key="value">
+	<tr class="table-row" @click="rowClick">
+		<template v-if="typeof value == 'object'">
 			<td>
 				<div :style="rowStyle(level)">
-                    <span v-if="expanded" >-</span>
-                    <span v-else >+</span>
-                    {{ prop }}
-                </div>
+					<span v-if="expanded">-</span>
+					<span v-else>+</span>
+					{{ prop }}
+				</div>
 			</td>
 			<td>
-				<!-- {{ propValue }} -->
+				<!-- {{ value }} -->
 			</td>
 		</template>
 		<template v-else>
@@ -17,33 +17,37 @@
 				<div :style="rowStyle(level)">{{ prop }}</div>
 			</td>
 			<td>
-				{{ value }}
+				<transition name="fade" mode="out-in">
+					<div :key="value">
+						{{ value }}
+					</div>
+				</transition>
 			</td>
 		</template>
 	</tr>
 
-	<object-row
-		v-if="expanded && typeof value == 'object'"
-		v-for="(v, p) in value"
-		:value="v"
-		:prop="p"
-		:level="level + 1"
-        :expandChildren="expandChildren"
-	/>
+	<object-row 
+		v-if="expanded && typeof value == 'object'" 
+		v-for="(v, p) in value" 
+		:value="v" 
+		:prop="p" 
+		:level="level + 1" 
+		:expandChildren="expandChildren" />
 </template>
 
 <script setup lang="ts">
+	import { valueToNode } from "@babel/types"
 	import { ref, defineProps, onMounted } from "vue"
-	import ValueRow from "./ValueRow.vue"
+	// import ValueRow from "./ValueRow.vue"
 	const props = defineProps(["prop", "value", "level", "expandChildren", "tableSettings"])
 
-    const expanded = ref(props.expandChildren)
-    const expandChildren = ref(props.expandChildren)
+	const expanded = ref(props.expandChildren)
+	const expandChildren = ref(props.expandChildren)
 
-    const rowClick = (e)=>{
-        expandChildren.value = e.altKey || e.shiftKey || e.ctrlKey
-        expanded.value = !expanded.value
-    }
+	const rowClick = (e) => {
+		expandChildren.value = e.altKey || e.shiftKey || e.ctrlKey
+		expanded.value = !expanded.value
+	}
 
 	// onMounted(() => {
 	// 	console.log("NEW:", props.prop, props.value)
@@ -55,7 +59,10 @@
 </script>
 
 <style scoped>
-	/* tr {
-		border: 1px solid lightgray;
-	} */
+	.fade-enter-from {
+		color: red;
+	}
+	.fade-enter-active {
+		transition: 10s ease;
+	}
 </style>
