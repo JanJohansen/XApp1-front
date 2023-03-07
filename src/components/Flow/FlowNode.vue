@@ -116,7 +116,7 @@
 		console.log(props.nodeId, n)
 	})
 
-	let flowModelNodeData = props.flowEditorModel.flowModel.nodes[props.nodeId]
+	let flowModelNodeData = props.flowEditorModel.flowModel.nodes[props.nodeId] 
 
 	let dragging = false
 	let nodeStartX = 0

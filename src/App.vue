@@ -1,28 +1,13 @@
 <template>
-	<!-- <q-fab
-		label=""
-		class="fixed-top-right"
-		vertical-actions-align="left"
-		color="primary"
-		icon="menu"
-		direction="left"
-	>
-		<q-fab-action color="primary" :icon="fsIcon" @click="goFullScreen" />
-		<q-fab-action to="/" label="Home" color="primary" icon="home" />
-		<q-fab-action to="/bbview" label="BBView" color="primary" icon="tag" />
-		<q-fab-action to="/typeview" label="TypeView" color="primary" icon="tag" />
-		<q-fab-action to="/wsLog" label="WS Log" color="primary" icon="manage_search" />
-		<q-fab-action to="/flow" label="Flow" color="primary" icon="account_tree" />
-		<q-fab-action to="/dev" label="DEV" color="primary" icon="airplay" />
-		<q-fab-action to="/obj" label="ObjView" color="primary" icon="data_object" />
-		<q-fab-action to="/about" label="About" color="primary" icon="help_outline" />
-	</q-fab> -->
-	<router-view class="pos-abs width-100 height-100" />
+	<router-view 
+		class="pos-abs width-100 height-100" 
+	/>
 </template>
 
 <script setup lang="ts">
 	import { useQuasar } from "quasar"
 	import { ref } from "vue"
+	import router from "./routes"
 	const $q = useQuasar()
 
 	$q.dark.set(true) // or false or "auto"

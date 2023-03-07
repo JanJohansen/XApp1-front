@@ -7,8 +7,8 @@
 		</template>
 		<template #left>
 			<q-toolbar-title> Flow Items: </q-toolbar-title>
-			<q-btn align="left" style="width: 100%" v-for="(val, key) in flowList" :icon="val.icon" :to="'flow\\' + val._oid">
-				&nbsp;&nbsp;{{ val.name }} ({{ val._oid }})</q-btn
+			<q-btn align="left" style="width: 100%" v-for="(val, key) in flowList" :icon="val.icon" :to="'/flow/' + key">
+				&nbsp;&nbsp;{{ val.name }} ({{ key }})</q-btn
 			>
 			<q-btn style="width: 100%" icon="add" v-on:click="newFlow()"></q-btn>
 		</template>
@@ -58,6 +58,7 @@
 	import PropertyEditor from "../components/Flow/PropertyEditor.vue"
 	import YAML from "yaml"
 import { NodeTypes } from "@vue/compiler-core"
+import router from "../routes"
 
 	const route = useRoute()
 	const flowNodeTypes = reactive({})
@@ -179,35 +180,11 @@ import { NodeTypes } from "@vue/compiler-core"
 	async function loadFlow() {
 		console.log("Loading node:", flowNodeId.value)
 		// TODO: Create loader "icon"
-		// get flow structure or root flowNode
-		// Get flowNode
-		// Display flowNode
-		// If desired flowNodeId doesn't exist try the root node.
 		if (!(await appBB.exists(flowNodeId.value))) {
 			console.log("Flow", flowNodeId.value, "does not exist!")
-			// If root node doesn't exist create it and use it!
-			flowNodeId.value = "theRootFlowNode"
-			if (!(await appBB.exists(flowNodeId.value))) {
-				console.log("Flow", flowNodeId.value, "does not exist - creating it!")
-				appBB.pub("theRootFlowNode", {
-					id: "theRootFlowNode",
-					type: "subflowNode",
-					ins: {},
-					outs: {},
-					nodes: [
-						{ id: "nodeWithID1", x: 50, y: 10 },
-						{ id: "nodeWithID2", x: 350, y: 10 }
-					],
-					connections: [
-						{
-							outNode: "nodeWithID1",
-							inNode: "nodeWithID2",
-							outName: "motion",
-							inName: "brightness"
-						}
-					]
-				})
-			}
+			// Reload route to first in list
+			// flowNodeId.value = Object.keys(flowList)[0]
+			router.push({ path: "/flow/" + Object.keys(flowList)[0] })
 		}
 		console.log("Getting data for flow:", flowNodeId.value)
 		appBB.sub(flowNodeId.value, (upd, n) => {

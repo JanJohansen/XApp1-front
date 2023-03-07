@@ -74,11 +74,11 @@ export interface IFlowDragConnection {
 	startX: number
 	startY: number
 	dragpos: { x: number; y: number }
-	inputNodeId?: string
+	inputNodeId?: string 
 	inputName?: string
 	outputNodeId?: string
 	outputName?: string
-}
+} 
 
 export interface IChildNodeInfo {
 	id: string
