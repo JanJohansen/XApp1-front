@@ -12,32 +12,37 @@ export interface IIdDbObject {
 	// [name: string]: any
 }
 
-export interface IValueInfo {
+export interface IValueInfo<T> {
 	vType: string
 	description?: string
-	default?: any
+	default?: T
 }
 
 // Specific value types
-export interface IBooleanValueInfo extends IValueInfo {
+export interface IBooleanValueInfo extends IValueInfo<boolean> {
 	vType: "boolean"
 	trueString: string
 	falseString: string
 }
-export interface INumberValueInfo extends IValueInfo {
+export interface INumberValueInfo extends IValueInfo<number> {
 	vType: "number"
 	min?: number
 	max?: number
+	unit?: string
+	step?: number
 }
-export interface IStringValueInfo extends IValueInfo {
+export interface IStringValueInfo extends IValueInfo<string> {
 	vType: "string"
 }
-export interface IEnumValueInfo extends IValueInfo {
+export interface IEnumValueInfo extends IValueInfo<string> {
 	vType: "enum"
 	options: string[]
 }
-export interface IObjectValueInfo extends IValueInfo {
+export interface IObjectValueInfo extends IValueInfo<object> {
 	vType: "object"
+}
+export interface IAnyValueInfo extends IValueInfo<object> {
+	vType: "any"
 }
 
 export interface IValue {
@@ -48,11 +53,14 @@ export interface IValue {
 export interface IFlowNodeTypeInfo extends IIdDbObject {
 	type: ["FlowNodeType", ...any]
 	nodeType: string
+	author?: string
+	version?: string
+	nameSpace?: string
 	nodeGroup: string
 	icon?: string
 	description?: string
-	ins?: { [id: string]: IBooleanValueInfo | INumberValueInfo | IStringValueInfo | IEnumValueInfo | IObjectValueInfo }
-	outs?: { [id: string]: IBooleanValueInfo | INumberValueInfo | IStringValueInfo | IEnumValueInfo | IObjectValueInfo }
+	ins?: { [id: string]: IBooleanValueInfo | INumberValueInfo | IStringValueInfo | IEnumValueInfo | IObjectValueInfo | IAnyValueInfo}
+	outs?: { [id: string]: IBooleanValueInfo | INumberValueInfo | IStringValueInfo | IEnumValueInfo | IObjectValueInfo | IAnyValueInfo}
 } 
 
 export interface IFlowNode extends IIdDbObject {

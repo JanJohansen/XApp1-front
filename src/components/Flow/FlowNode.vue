@@ -68,6 +68,42 @@
 				>{{ name }}</text
 			>
 		</g>
+		<foreignObject width="200" height="500" y="400">
+			<div class="function-block">
+				<div class="function-name">My Function</div>
+				<div class="ios">
+					<div class="inputs">
+						<div class="input">
+							<span class="input-circle"></span>
+							<span class="input-name">Input 1</span>
+						</div>
+						<div class="input">
+							<span class="input-circle"></span>
+							<span class="input-name">Input 2</span>
+						</div>
+					</div>
+					<div>+</div>
+					<div class="outputs">
+						<span class="output-name">Output 1</span>
+						<span class="output-circle"></span>
+					</div>
+				</div>
+				-
+				<div>
+					<input type="range" min="1" max="100" value="50" class="slider" id="myRange" style="display: block; width: 98%" />
+					<!-- <input
+        type="text"
+        value="{a:50}"
+        class="slider"
+        style="display: block; margin: 10 20 30 40"
+      /> -->
+					<!-- <div>
+        <textarea style="position: absolute; resize: vertical; right: -10">{}</textarea>
+      </div> -->
+					...more HTML content here...
+				</div>
+			</div>
+		</foreignObject>
 	</g>
 	<g v-else :transform="'translate(' + flowModelNodeData.x + ',' + flowModelNodeData.y + ')'">
 		<rect
@@ -84,9 +120,7 @@
 			:height="height"
 			fill="red"
 		/>
-		<text ref="svgTextHeading" class="node-name-text" :x="width / 2" y="3" text-anchor="middle" dominant-baseline="hanging">
-			Unknown node!
-		</text>
+		<text ref="svgTextHeading" class="node-name-text" :x="width / 2" y="3" text-anchor="middle" dominant-baseline="hanging"> Unknown node! </text>
 	</g>
 </template>
 
@@ -109,14 +143,14 @@
 
 	let editorModel = props.flowEditorModel.editorModel
 	// Get data (nodeModel + nodeTypeInfo) for node
-	const n = reactive<{nodeModel: IFlowNode, nodeTypeInfo: IFlowNodeTypeInfo }>({})
-	watchEffect( () => {
+	const n = reactive<{ nodeModel: IFlowNode; nodeTypeInfo: IFlowNodeTypeInfo }>({})
+	watchEffect(() => {
 		n.nodeModel = props.flowEditorModel.nodeModels[props.nodeId]
-		if(n.nodeModel) n.nodeTypeInfo = props.flowEditorModel.flowNodeTypeInfos[n.nodeModel.nodeTypeId]
+		if (n.nodeModel) n.nodeTypeInfo = props.flowEditorModel.flowNodeTypeInfos[n.nodeModel.nodeTypeId]
 		console.log(props.nodeId, n)
 	})
 
-	let flowModelNodeData = props.flowEditorModel.flowModel.nodes[props.nodeId] 
+	let flowModelNodeData = props.flowEditorModel.flowModel.nodes[props.nodeId]
 
 	let dragging = false
 	let nodeStartX = 0
@@ -320,5 +354,90 @@
 		fill: white;
 		stroke: black;
 		stroke-width: 3;
+	}
+
+	/* for HTML parts. */
+
+	.function-block {
+		position: absolute;
+		background-color: #333333;
+		border: 3px solid #666;
+		border-radius: 10px;
+		padding: 2px 0 4px 0;
+	}
+
+	.function-name {
+		/* position: absolute; */
+		/* top: 10px; */
+		/* left: 50%; */
+		/* transform: translateX(-50%); */
+		text-align: center;
+		font-size: 16px;
+		font-weight: bold;
+	}
+
+	.ios {
+		display: flex;
+		justify-content: space-between;
+	}
+
+	.inputs,
+	.outputs {
+		/* position: absolute; */
+		/* top: 50%; */
+		/* transform: translateY(-50%); */
+		/* width: 100px;
+  height: 30px; */
+	}
+
+	.input {
+		left: 0;
+	}
+
+	.output {
+		right: 0;
+	}
+
+	.input-circle,
+	.output-circle {
+		display: inline-block;
+		position: relative;
+		width: 15px;
+		height: 15px;
+		border-radius: 50%;
+		background-color: grey;
+		border: 1px solid black;
+	}
+
+	.input-circle {
+		left: -10px;
+		top: 4px;
+	}
+
+	.output-circle {
+		right: -9px;
+		top: 4px;
+	}
+
+	.input-name,
+	.output-name {
+		/* position: absolute; */
+		/* top: 50%; */
+		/* transform: translateY(-50%); */
+		text-align: left;
+		font-size: 14px;
+	}
+
+	.input-name {
+		display: inline-block;
+		position: relative;
+		left: -7px;
+	}
+
+	.output-name {
+		display: inline-block;
+		position: relative;
+		right: -7px;
+		text-align: right;
 	}
 </style>

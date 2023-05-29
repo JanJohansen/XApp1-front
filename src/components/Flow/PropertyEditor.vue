@@ -29,23 +29,31 @@
 						v-model="props.row.value"
 						dense
 					/>
-					<!-- TODO: number slider -->
-					<q-input 
-						v-else-if="props.row.inInfo.vType == 'string'" 
-						:model-value="props.row.value" 
-						dense filled 
+					<q-slider
+						v-else-if="props.row.inInfo.vType == 'number'"
+						v-model="props.row.value"
+						:min="props.row.inInfo.min"
+						:max="props.row.inInfo.max"
+						:label-value="props.row.value + props.row.inInfo.unit"
+						:step="props.row.inInfo.step"
+						label
+						label-always
+						markers
+						dark
+						dense
 					/>
-					<q-select 
+					<q-input v-else-if="props.row.inInfo.vType == 'string'" :model-value="props.row.value" dense filled />
+					<q-select
 						v-else-if="props.row.inInfo.vType == 'enum'"
-						v-model="props.value" 
-						:options="props.row.inInfo.options" 
-						dense 
-						options-dense 
-						filled 
+						v-model="props.value"
+						:options="props.row.inInfo.options"
+						dense
+						options-dense
+						filled
 						menu-shrink
 					/>
 					<!-- TODO: object -->
-					<textarea v-else filled >{{ props }}</textarea>
+					<textarea v-else filled>{{ props }}</textarea>
 					<!-- <q-input v-if="props.row.type=='string'" dense :model-value="props.value" /> -->
 				</q-td>
 			</template>
@@ -79,7 +87,11 @@
 		for (let inProp in nodeTypeInfo.value.ins) {
 			// let value = nodeModel.value.ins[inProp] ?
 			// TODO: Get value from nodeModel - or from "nodeId.ins.inx.v"
-			properties.push({ name: inProp, inInfo: nodeTypeInfo.value.ins[inProp], value: 42 })
+			properties.push({
+				name: inProp,
+				inInfo: nodeTypeInfo.value.ins[inProp],
+				value: 42
+			})
 
 			// IDEA: Icon for each input/output? icon: node.ins[inProp].icon
 		}

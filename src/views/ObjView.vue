@@ -20,28 +20,7 @@
 
 	const objects = reactive<any>({})
 
-	appBB.sub("oIndex", (args) => {
-		console.log("oIndex", args)
-		for (let item in args) {
-			appBB.sub(item, (v, n) => {
-				console.log("Subbed:", { obj: n, value: v, type: typeof v })
-				patch(objects, n, v)
-			})
-		}
-	})
 
-	// Get Values!
-	appBB.sub("vIndex", (args) => {
-		console.log("vIndex", args)
-		for (let item in args) {
-			appBB.sub(item, (v, n) => {
-				// console.log("vUpdtae:", n, "=", v, objects)
-				objects[n] = v
-			})
-		}
-	})
-
-	//-------------------------------------------------------------------------
 	const patch = (rootObj: any, name: string, value: any): void => {
 		let lvl = 0
 		let pathArray = name.split(".")
@@ -65,6 +44,27 @@
 
 		console.log("objects", objects)
 	}
+
+	appBB.oSub("oIndex", (args) => {
+		console.log("oIndex", args)
+		for (let item in args) {
+			appBB.oSub(item, (v, n) => {
+				console.log("Subbed:", { obj: n, value: v, type: typeof v })
+				patch(objects, n, v)
+			})
+		}
+	})
+
+	// Get Values!
+	appBB.oSub("vIndex", (args) => {
+		console.log("vIndex", args)
+		for (let item in args) {
+			appBB.oSub(item, (v, n) => {
+				// console.log("vUpdtae:", n, "=", v, objects)
+				objects[n] = v
+			})
+		}
+	})
 </script>
 
 <style scoped>

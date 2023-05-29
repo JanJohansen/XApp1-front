@@ -157,7 +157,7 @@
 		}
 	]
 
-	wsBBClient.sub("idx:type=?", (args) => {
+	wsBBClient.oSub("idx:type=?", (args) => {
 		console.log("idx:type=? =>", args)
 		loggers.value = args
 	})

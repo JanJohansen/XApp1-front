@@ -16,24 +16,53 @@
 				<q-badge transparent color="red">3</q-badge>
 			</q-btn>
 		</template>
-			<q-table
-				style="height: 100%; width: 100%; flex: 1"
-				title="BB-View"
-				hide-bottom
-				:rows="objArray"
-				:columns="columns"
-				row-key="name"
-				:rows-per-page-options="[0]"
-				dense
-				type="table"
-				virtual-scroll
-				:virtual-scroll-item-size="48"
-				:virtual-scroll-sticky-size-start="48"
-				:virtual-scroll-sticky-size-end="32"
-				:pagination="{ sortBy: 'id', descending: false }"
-				class="my-sticky-header-column-table"
-			>
-			</q-table>
+		<q-splitter 
+			v-model="splitterModel" 
+			separator-class="bg-orange" 
+			separator-style="width: 3px" 
+			style="height: 100%; width: 100%; flex: 1"
+		>
+			<template v-slot:before>
+				<q-table
+					style="height: 100%; width: 100%; flex: 1"
+					title="BB-Objects"
+					hide-bottom
+					:rows="objArray"
+					:columns="oColumns"
+					row-key="name"
+					:rows-per-page-options="[0]"
+					dense
+					type="table"
+					virtual-scroll
+					:virtual-scroll-item-size="48"
+					:virtual-scroll-sticky-size-start="48"
+					:virtual-scroll-sticky-size-end="32"
+					:pagination="{ sortBy: 'id', descending: false }"
+					class="my-sticky-header-column-table"
+				>
+				</q-table>
+			</template>
+			<template v-slot:after>
+				<q-table
+					style="height: 100%; width: 100%; flex: 1"
+					title="BB-Values"
+					hide-bottom
+					:rows="valArray"
+					:columns="oColumns"
+					row-key="name"
+					:rows-per-page-options="[0]"
+					dense
+					type="table"
+					virtual-scroll
+					:virtual-scroll-item-size="48"
+					:virtual-scroll-sticky-size-start="48"
+					:virtual-scroll-sticky-size-end="32"
+					:pagination="{ sortBy: 'id', descending: false }"
+					class="my-sticky-header-column-table"
+				>
+				</q-table>
+			</template>
+		</q-splitter>
 	</editor-page-layout>
 </template>
 
@@ -44,9 +73,11 @@
 	import db from "../ObjDbClient"
 	import appBB from "../WsBBClient"
 	import YAML from "yaml"
+	import { patch } from "../common/util"
 
 	const router = useRouter()
 	const route = useRoute()
+	const splitterModel = ref(50)
 
 	console.log("ID:", route.params.id)
 
@@ -59,29 +90,67 @@
 		return str
 	}
 
+	// Get all objects
 	// Store val/obj. Use it to determine if a subObj is new. If so add sub obj reference to array!
 	let oObj = reactive<{ [id: string]: { id: string; value: any } }>({})
-	appBB.sub("oIndex", (upd) => {
+	appBB.oSub("oIndex", (upd) => {
 		console.log("oIndex", upd)
-		// TODO: patch(vObj, args)
-		// ...
-		for (let bbItemId in upd) {
-			if (!(bbItemId in oObj)) {
-				let item = { id: bbItemId }
-				oObj[bbItemId] = item
+		for (let bbObjectId in upd) {
+			if (!(bbObjectId in oObj)) {
+				let item = { id: bbObjectId, value: undefined }
+				oObj[bbObjectId] = item
 				// sub values
-				appBB.sub(bbItemId, (value: any, name: string) => {
+				appBB.oSub(bbObjectId, (value: any, name: string) => {
 					console.log("BBValue!!!! - ", name, value)
-					oObj[name].value = value
+					if (typeof value == "object" && typeof oObj[name].value == "object") patch(value, oObj[name].value)
+					else oObj[name].value = value
 				})
 			}
 		}
 	})
-	const columns = [
+	const oColumns = [
 		{
 			align: "left",
 			name: "id",
-			label: "BB Item",
+			label: "ObjectId",
+			field: "id",
+			sortable: true,
+			sortOrder: "ad",
+			format: (id) => id || "??"
+		},
+		{
+			align: "left",
+			name: "value",
+			label: "Value",
+			field: "value",
+			sortable: true,
+			format: (value) => YAML.stringify(value)
+		}
+	]
+
+	// Get all values
+	// Store val/obj. Use it to determine if a subObj is new. If so add sub obj reference to array!
+	let vObj = reactive<{ [id: string]: { id: string; value: any } }>({})
+	appBB.oSub("vIndex", (upd) => {
+		console.log("vIndex", upd)
+		for (let bbValueId in upd) {
+			if (!(bbValueId in vObj)) {
+				let item = { id: bbValueId, value: undefined }
+				vObj[bbValueId] = item
+				// sub values
+				appBB.vSub(bbValueId, (value: any, name: string) => {
+					console.log("BBValue!!!! - ", name, value)
+					// if (typeof value == "object" && typeof vObj[name].value == "object") patch(value, vObj[name].value)
+					vObj[name].value = value
+				})
+			}
+		}
+	})
+	const vColumns = [
+		{
+			align: "left",
+			name: "id",
+			label: "ValueId",
 			field: "id",
 			sortable: true,
 			sortOrder: "ad",
@@ -99,8 +168,6 @@
 
 	//-------------------------------------------------------------------------
 	// String name+val --> object tree
-	let objTree: any = {}
-	// let objArray = reactive<any>([])
 	let objArray = computed(() => {
 		let a = []
 		for (let itemId in oObj) {
@@ -108,6 +175,15 @@
 		}
 		return a
 	})
+
+	let valArray = computed(() => {
+		let a = []
+		for (let itemId in vObj) {
+			a.push({ id: itemId, value: vObj[itemId].value })
+		}
+		return a
+	})
+
 </script>
 
 <style lang="sass">
@@ -121,7 +197,7 @@
 
   td:first-child
     /* bg color is important for td; just specify one */
-    background-color: #000000 !important
+    background-color: #000 !important
 
   tr th
     position: sticky

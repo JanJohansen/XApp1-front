@@ -50,7 +50,7 @@
 <script setup lang="ts">
 	import { ref, reactive, onMounted, watch, computed, watchEffect } from "vue"
 	import { IFlowEditorModel, IFlowModel, IFlowNode, IFlowNodeTypeInfo } from "../common/flowTypes"
-	import { patch } from "../common/util"
+	import { patch, generateBase64Uuid } from "../common/util"
 	import flowCanvas from "../components/Flow/FlowCanvas.vue" // @ is an alias to /src
 	import appBB from "../WsBBClient"
 	import EditorPageLayout from "../components/EditorPageLayout.vue"
@@ -92,7 +92,7 @@ import router from "../routes"
 		for(let nodeId in flowModel.nodes){
 			if(nodeId in nodeModels) continue
 			console.log("Getting nodeModel for:", nodeId)
-			appBB.sub(nodeId, (upd)=>{
+			appBB.oSub(nodeId, (upd)=>{
 				nodeModels[nodeId] ||= {}
 				patch(upd, nodeModels[nodeId])
 			})
@@ -110,10 +110,10 @@ import router from "../routes"
 	})
 
 	async function loadFlowNodeTypeInfos() {
-		appBB.sub("idx:type=FlowNodeType", (upd) => {
+		appBB.oSub("idx:type=FlowNodeType", (upd) => {
 			for (let flowTypeInfoId in upd) {
 				if (upd[flowTypeInfoId] != null) {
-					appBB.sub(flowTypeInfoId, (flowTypeInfo) => {
+					appBB.oSub(flowTypeInfoId, (flowTypeInfo) => {
 						console.log("flowTypeInfo", flowTypeInfoId, JSON.stringify(upd))
 						// group.push({
 						// 	label: flowTypeInfo.nodeType,
@@ -154,11 +154,12 @@ import router from "../routes"
 					console.log("Clicked to add", flowTypeInfo, evt)
 					// Add new node.
 					// Add to FlowNode
-					let newNodeId = "~" + Math.random().toString()
+					// let newNodeId = "~" + Math.random().toString()
+					let newNodeId = generateBase64Uuid()
 
 					flowModel.nodes[newNodeId] = { id: newNodeId, x: 0, y: 0 }
 					// Add model for node... (To be instantiated on server side.)
-					appBB.pub(newNodeId, { type: ["FlowNode"], nodeTypeId: flowTypeInfoId })
+					appBB.oPub(newNodeId, { type: ["FlowNode"], nodeTypeId: flowTypeInfoId })
 				}
 			}
 		}
@@ -166,10 +167,10 @@ import router from "../routes"
 	}
 
 	async function loadFlowList() {
-		appBB.sub("idx:type=RootFlow", (upd) => {
+		appBB.oSub("idx:type=RootFlow", (upd) => {
 			patch(upd, flowList)
 			for (let flowId in upd) {
-				appBB.sub(flowId, (upd) => {
+				appBB.oSub(flowId, (upd) => {
 					flowList[flowId] ||= {}
 					patch(upd, flowList[flowId])
 				})
@@ -180,21 +181,21 @@ import router from "../routes"
 	async function loadFlow() {
 		console.log("Loading node:", flowNodeId.value)
 		// TODO: Create loader "icon"
-		if (!(await appBB.exists(flowNodeId.value))) {
+		if (!(await appBB.oExists(flowNodeId.value))) {
 			console.log("Flow", flowNodeId.value, "does not exist!")
 			// Reload route to first in list
 			// flowNodeId.value = Object.keys(flowList)[0]
 			router.push({ path: "/flow/" + Object.keys(flowList)[0] })
 		}
 		console.log("Getting data for flow:", flowNodeId.value)
-		appBB.sub(flowNodeId.value, (upd, n) => {
+		appBB.oSub(flowNodeId.value, (upd, n) => {
 			console.log("Got data for flow:", upd)
 			patch(upd, flowModel, { setIfSame: false }) // Dynamically update if model changes on server.
 			if (upd.nodes) {
 				// update to nodes in flow.
 				// Subscribe to these nodes info!
 				for (let nodeId in upd.nodes) {
-					appBB.sub(nodeId, (upd) => {
+					appBB.oSub(nodeId, (upd) => {
 						nodeModels[nodeId] ||= {}
 						patch(upd, nodeModels[nodeId])
 					})
@@ -216,7 +217,7 @@ import router from "../routes"
 			nodes: {},
 			connections: []
 		}
-		appBB.pub(newFlowId, newFlow)
+		appBB.oPub(newFlowId, newFlow)
 	}
 
 	// editorModel.contextMenu =[

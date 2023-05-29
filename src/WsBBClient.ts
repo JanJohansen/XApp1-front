@@ -34,25 +34,44 @@ class WsBBClient {
 		this.events[name]!.push(cb)
 	}
 
-	// PubSub API
-	subs: { [name: string]: { lastVal: any; cbs: [cb: (value: any, name: string) => void] | [] } } = {}
-	pub(name: string, value: any) {
-		this.protocolHandler.notify("pub", { n: name, v: value })
+	// PubSub Object API ------------
+	oSubs: { [name: string]: { lastVal: any; cbs: [cb: (value: any, name: string) => void] | [] } } = {}
+	oPub(name: string, value: any) {
+		this.protocolHandler.notify("oPub", { n: name, v: value })
 	}
-	sub(name: string, cb: (value: any, name: string) => void) {
-		if (!(name in this.subs)) {
-			this.subs[name] = { lastVal: undefined, cbs: [] }
-			this.protocolHandler.notify("sub", { n: name })
+	oSub(name: string, cb: (value: any, name: string) => void) {
+		if (!(name in this.oSubs)) {
+			this.oSubs[name] = { lastVal: undefined, cbs: [] }
+			this.protocolHandler.notify("oSub", { n: name })
 		} else {
 			// Already subscribed from server
 			// Get local cached value - _if it was retrived by a "val" update_
-			if(this.subs[name].lastVal != undefined) cb(this.subs[name].lastVal, name)
+			if(this.oSubs[name].lastVal != undefined) cb(this.oSubs[name].lastVal, name)
 		}
-		this.subs[name].cbs.push(cb)
+		this.oSubs[name].cbs.push(cb)
+	}
+	async oExists(name: string) {
+		return this.protocolHandler.call("oExists", { n: name })
 	}
 
-	async exists(name: string) {
-		return this.protocolHandler.call("exists", { n: name })
+	// PubSub Value API ------------
+	vSubs: { [valueId: string]: { lastVal: any; cbs: [cb: (value: any, name: string) => void] | [] } } = {}
+	vPub(valueId: string, value: any) {
+		this.protocolHandler.notify("vPub", { n: valueId, v: value })
+	}
+	vSub(valueId: string, cb: (value: any, name: string) => void) {
+		if (!(valueId in this.vSubs)) {
+			this.vSubs[valueId] = { lastVal: undefined, cbs: [] }
+			this.protocolHandler.notify("vSub", { n: valueId })
+		} else {
+			// Already subscribed from server
+			// Get local cached value - _if it was retrived by a "val" update_
+			if(this.vSubs[valueId].lastVal != undefined) cb(this.vSubs[valueId].lastVal, valueId)
+		}
+		this.vSubs[valueId].cbs.push(cb)
+	}
+	async vExists(valueId: string) {
+		return this.protocolHandler.call("vExists", { n: valueId })
 	}
 
 	// call = this.protocolHandler.call.bind(this.protocolHandler)
@@ -61,12 +80,23 @@ class WsBBClient {
 
 	constructor(config: any = undefined) {
 		this._connect()
-		this.protocolHandler.on("val", (args) => {
-			// console.log("WsBBC.rx.VAL", args)
-			let subs = this.subs[args.n]
+		this.protocolHandler.on("oUpd", (args) => {
+			console.log("WsBBC.rx.oUpd", args)
+			let subs = this.oSubs[args.n]
 			if (subs) {
 				subs.cbs.forEach((cb) => {
-					this.subs[args.n].lastVal = args.v
+					this.oSubs[args.n].lastVal = args.v
+					cb(args.v, args.n)
+				})
+			}
+			// Cache value for subsequext subscriptionms to already subscribed BB items.
+		})
+		this.protocolHandler.on("vUpd", (args) => {
+			console.log("WsBBC.rx.vUpd", args)
+			let subs = this.vSubs[args.n]
+			if (subs) {
+				subs.cbs.forEach((cb) => {
+					this.vSubs[args.n].lastVal = args.v
 					cb(args.v, args.n)
 				})
 			}

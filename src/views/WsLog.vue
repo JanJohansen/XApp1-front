@@ -102,13 +102,13 @@
 		if (!scrolling) logView.value.scrollTop = logView.value.scrollHeight
 	})
 
-	wsBBClient.sub("common.log.logEvent", (args) => {
+	wsBBClient.oSub("common.log.logEvent", (args) => {
 		console.log("LOG:", args)
 		log.value.push(args)
 		logRows.value.push(args)
 		if (log.value.length > maxLogLines) log.value.shift()
 	})
-	wsBBClient.sub("common.log.loggers", (args) => {
+	wsBBClient.oSub("common.log.loggers", (args) => {
 		console.log("LOG.modules:", args)
 		loggers.value = args
 	})

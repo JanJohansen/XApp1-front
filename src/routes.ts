@@ -8,6 +8,7 @@ import BBView from "./views/BBView.vue"
 import WsLog from "./views/WsLog.vue"
 import Flow from "./views/Flow.vue"
 import TypeView from "./views/typeView.vue"
+import Dash from "./views/Dash.vue"
 
 const routes = [
 	{ path: "/", name: "Home", component: Home },
@@ -21,6 +22,7 @@ const routes = [
 	{ path: "/bbview/:id", component: BBView },
 	{ path: "/flow/:id", component: Flow },
 	{ path: "/flow", component: Flow },
+	{ path: "/dash", component: Dash },
 
 	{ path: "/:pathMatch(.*)", component: Home }
 ]
