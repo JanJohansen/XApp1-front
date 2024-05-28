@@ -1,9 +1,8 @@
 <template>
 	<editor-page-layout>
+	<title>ARI - Type view</title>
 		<template #top>
 			Types
-			<q-space />
-			<q-btn label="Deploy flow" color="green" dense></q-btn>
 		</template>
 		<template #left>Left!</template>
 		<template #right>Right!</template>
@@ -23,7 +22,18 @@
 				<q-badge transparent color="red">3</q-badge>
 			</q-btn>
 		</template>
-
+		<q-list
+			title="Types"
+			virtual-scroll
+			:virtual-scroll-sticky-size-start="78"
+			style="height: 100%"
+			hide-bottom
+			:rows="logRows"
+			:columns="logColumns"
+			row-key="name"
+			:rows-per-page-options="[0]"
+			@virtual-scroll="scrollEvent"
+			></q-list>
 		<q-table
 			title="Log"
 			virtual-scroll

@@ -5,8 +5,10 @@
 			<q-item
 				clickable
 				v-for="(item, label) in contextMenuModel"
-				@click="(e)=>onclick(item, e)"
-				v-close-popup="item.subMenu != undefined ? false: true"
+				@click="(e) => onclick(item, e)"
+				v-close-popup="item.subMenu != undefined ? false : true"
+				@mouseenter="mouseEnter"
+				@mouseleave="mouseLeave"
 			>
 				<q-item-section :icon="item.icon">
 					{{ label }}
@@ -14,7 +16,12 @@
 				<q-item-section side v-if="item.subMenu">
 					<q-icon name="keyboard_arrow_right" />
 				</q-item-section>
-				<context-menu v-if="item.subMenu" :context-menu-model="item.subMenu!"></context-menu>
+				<context-menu
+					:ref="(el) => setItemRef(el)"
+					v-if="item.subMenu"
+					:context-menu-model="item.subMenu!"
+				></context-menu>
+					<!-- v-model="showSubMenu" -->
 			</q-item>
 			<q-separator />
 		</q-list>
@@ -22,18 +29,14 @@
 </template>
 
 <script setup lang="ts">
-	import { ref } from "vue"
+	import { onMounted, ref } from "vue"
 	import ContextMenu from "./ContextMenu.vue"
-	// interface IContextMenuItem {
-	// 	label?: string
-	// 	icon?: string
-	// 	onClick?: () => void
-	// 	subMenu?: IContextMenuItem[]
-	// }
+	import { QMenu } from "quasar"
+
 	interface IContextMenu {
 		[label: string]: {
 			icon?: string
-			onClick?: () => void
+			onClick?: (e: Event) => void
 			subMenu?: IContextMenu
 		}
 	}
@@ -42,10 +45,31 @@
 		contextMenuModel: IContextMenu
 	}>()
 
-	function onclick(item, e){
+	const showSubMenu = ref(false)
+
+	const subMenuEl = ref<QMenu[]>([])
+	function setItemRef(el) {
+		console.log("Adding ref:", el)
+		if (el) {
+			subMenuEl.value.push(el)
+		}
+	}
+	
+	function onclick(item, e) {
 		if (item.onClick) item.onClick(e)
 	}
-
+	
+	// FIXME: Auto open submenu on hover...
+	function mouseEnter() {
+		// showSubMenu.value = true
+		// console.log("SobMenuEl:", subMenuEl.value[0])
+		// subMenuEl.value[0].show()
+	}
+	function mouseLeave() {
+		// showSubMenu.value = false
+		// console.log("SobMenuEl:", subMenuEl.value[0])
+		// subMenuEl.value[0].show()
+	}
 </script>
 
 <style scoped></style>

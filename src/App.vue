@@ -1,7 +1,5 @@
 <template>
-	<router-view 
-		class="pos-abs width-100 height-100" 
-	/>
+	<router-view class="pos-abs width-100 height-100 font" />
 </template>
 
 <script setup lang="ts">
@@ -32,6 +30,11 @@
 </script>
 
 <style scoped>
+	.font {
+		color: blue;
+		/* font-weight: lighter; */
+		line-height: 1;
+	}
 	.router-link-active {
 		font-weight: bolder;
 		font-size: larger;

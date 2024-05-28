@@ -2,16 +2,8 @@
 // NOTE TO SELF: Files are copied from back/common --> front/common (using cpx in dev script)
 //
 
-export interface IDbObject {
-	//_oid?: string
-	// [name: string]: any
-} 
-
-export interface IIdDbObject {
-	//_oid: string
-	// [name: string]: any
-}
-
+// ----------------------------------------------------------------------------
+// Object types
 export interface IValueInfo<T> {
 	vType: string
 	description?: string
@@ -21,8 +13,8 @@ export interface IValueInfo<T> {
 // Specific value types
 export interface IBooleanValueInfo extends IValueInfo<boolean> {
 	vType: "boolean"
-	trueString: string
-	falseString: string
+	trueString?: string
+	falseString?: string
 }
 export interface INumberValueInfo extends IValueInfo<number> {
 	vType: "number"
@@ -50,22 +42,47 @@ export interface IValue {
 	ts?: number
 }
 
+// ----------------------------------------------------------------------------
+// Object types
+export interface IIdDbObject {
+	id: string
+	// [name: string]: any
+}
+
 export interface IFlowNodeTypeInfo extends IIdDbObject {
 	type: ["FlowNodeType", ...any]
-	nodeType: string
+	nodeTypeId: string
+	nodeTypeName: string
+	nodeGroup: string
+	nodeUiTypeId?: string
 	author?: string
 	version?: string
-	nameSpace?: string
-	nodeGroup: string
 	icon?: string
 	description?: string
-	ins?: { [id: string]: IBooleanValueInfo | INumberValueInfo | IStringValueInfo | IEnumValueInfo | IObjectValueInfo | IAnyValueInfo}
-	outs?: { [id: string]: IBooleanValueInfo | INumberValueInfo | IStringValueInfo | IEnumValueInfo | IObjectValueInfo | IAnyValueInfo}
-} 
+	ins?: {
+		[inputName: string]:
+			IBooleanValueInfo
+			| INumberValueInfo
+			| IStringValueInfo
+			| IEnumValueInfo
+			| IObjectValueInfo
+			| IAnyValueInfo
+	}
+	outs?: {
+		[outputName: string]:
+			IBooleanValueInfo
+			| INumberValueInfo
+			| IStringValueInfo
+			| IEnumValueInfo
+			| IObjectValueInfo
+			| IAnyValueInfo
+	}
+}
 
 export interface IFlowNode extends IIdDbObject {
 	type: ["FlowNode", ...any]
 	nodeTypeId: string
+	displayName: string
 	ins?: { [id: string]: IValue }
 	outs?: { [id: string]: IValue }
 }
@@ -77,22 +94,22 @@ export interface IFlowConnection {
 	outputName: string
 }
 
-export interface IFlowDragConnection {
-	// Used in Flow editor for dragging new connections. (While dragging!)
-	startX: number
-	startY: number
-	dragpos: { x: number; y: number }
-	inputNodeId?: string 
-	inputName?: string
-	outputNodeId?: string
-	outputName?: string
-} 
-
 export interface IChildNodeInfo {
 	id: string
 	x: number
 	y: number
+	nodeTypeId: string
+	config: { ins: { [inputName: string]: any }; displayName?: string }
 }
+// FIXME: Either use type or interface!
+export type TChildNodeInfo = {
+	id: string
+	x: number 
+	y: number
+	nodeTypeId: string
+	test(): void 
+}
+type TNewChildNodeInfo = Omit<IChildNodeInfo, "id">
 
 export interface IFlowModel extends IFlowNode {
 	type: ["FlowNode", "RootFlow", ...any]
@@ -107,44 +124,73 @@ export interface IFlowModel extends IFlowNode {
 	lastCommitUserId?: string
 }
 
-export interface IEditorModel {
-	selectedNodeId: string
-	contextMenu: any
-}
+// type TTestFlowNodeType {
+// 	nodeId: string
+// 	displayName: string
+// 	ins: {
+// 		[name:string]: {
+// 			type: "number" | "string" | "enum"
+// 			description?: string
+// 			value: number | string | boolean | object
 
-export interface IFlowEditorModel {
-	editorModel: IEditorModel
-	flowModel: IFlowModel
-	flowNodeTypeInfos: { [typeName: string]: IFlowNodeTypeInfo }
-	nodeModels: { [nodeId: string]: IFlowNode }
-}
+// 		}
+// 	}
+// 	nodes: {[nodeId:string]: IFlowNode}
+// }
+
+// type I = TTestFlowNodeType["ins"]
+
+// export interface IEditorModel {
+// 	scale: number
+// 	origin: { x: number; y: number }
+// 	selectedNodeId: string
+// 	contextMenu: any
+// 	newConnection: {
+// 		outputNodeId: string
+// 		outputName: string
+// 		inputNodeId: string
+// 		inputName: string
+// 		startX: number
+// 		startY: number
+// 		mouseX: number
+// 		mouseY: number
+// 	} | null
+// }
+
+// export interface IFlowEditorModel {
+// 	editorModel: IEditorModel
+// 	flowModel: IFlowModel
+// 	flowNodeTypeInfos: { [typeName: string]: IFlowNodeTypeInfo }
+// 	nodeModels: { [nodeId: string]: IFlowNode }
+// 	// findNode: ()=>{}
+// }
 
 // Usage ----------------------------------------------------------------------
 
-let rootFlowModel: IFlowModel = {
-	type: ["FlowNode", "RootFlow"],
-	nodeTypeId: "Flow",
-	nodes: {
-		N1: { id: "N1", x: 0, y: 0 },
-		N2: { id: "N2", x: 200, y: 0 }
-	},
-	connections: { cId1: { outputNodeId: "N1", outputName: "out1", inputNodeId: "N2", inputName: "in1" } },
-	_oid: "",
-	selectedNodeId: "N1",
-	active: true,
-	lastCommitTS: 78623147263
-}
+// let rootFlowModel: IFlowModel = {
+// 	type: ["FlowNode", "RootFlow"],
+// 	nodeTypeId: "Flow",
+// 	nodes: {
+// 		N1: { id: "N1", x: 0, y: 0 },
+// 		N2: { id: "N2", x: 200, y: 0 }
+// 	},
+// 	connections: { cId1: { outputNodeId: "N1", outputName: "out1", inputNodeId: "N2", inputName: "in1" } },
+// 	_oid: "",
+// 	selectedNodeId: "N1",
+// 	active: true,
+// 	lastCommitTS: 78623147263
+// }
 
-let N1: IFlowNode = {
-	type: ["FlowNode"],
-	nodeTypeId: "TestNode1",
-	outs: { out1: { _vid: "valueId1" } },
-	_oid: "N1"
-}
+// let N1: IFlowNode = {
+// 	type: ["FlowNode"],
+// 	nodeTypeId: "TestNode1",
+// 	outs: { out1: { _vid: "valueId1" } },
+// 	_oid: "N1"
+// }
 
-let N2: IFlowNode = {
-	type: ["FlowNode"],
-	nodeTypeId: "TestNode2",
-	ins: { in1: { _vid: "valueId2" } },
-	_oid: "N2"
-}
+// let N2: IFlowNode = {
+// 	type: ["FlowNode"],
+// 	nodeTypeId: "TestNode2",
+// 	ins: { in1: { _vid: "valueId2" } },
+// 	_oid: "N2"
+// }

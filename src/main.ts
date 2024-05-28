@@ -1,4 +1,5 @@
 import { createApp } from "vue"
+import { createPinia } from 'pinia'
 import App from "./App.vue"
 import router from "./routes"
 
@@ -10,17 +11,29 @@ import "../theme.css"
 
 // createApp(App).use(router).mount("#app")
 
-const myApp = createApp(App)
-myApp.use(router)
-myApp.use(Quasar, {
+const app = createApp(App)
+console.log("Using Pinia!")
+const pinia = createPinia()
+app.use(pinia)
+
+app.use(router)
+
+app.use(Quasar, {
 	plugins: { Notify }, // import Quasar plugins and add here
 	config: {
 		notify: {}, // default set of options for Notify Quasar plugin
 		brand: {
-			primary: "#101010",
-			dark: "#000000",
-			// "dark-page": "#000000"
-			// ...
+			primary: '#181a21',
+			secondary: '#0000ff',
+			accent: '#9C27B0',
+	  
+			dark: '#101010',
+			'dark-page': '#050505',
+	  
+			positive: '#21BA45',
+			negative: '#7f0000',
+			info: '#ffff00',
+			warning: '#f20000'
 		}
 		// loading: {...}, // default set of options for Loading Quasar plugin
 		// loadingBar: { ... }, // settings for LoadingBar Quasar plugin
@@ -29,7 +42,7 @@ myApp.use(Quasar, {
 })
 
 // Assumes you have a <div id="app"></div> in your index.html
-myApp.mount("#app")
+app.mount("#app")
 
 //-----------------------------------------------------------------------------
 import TestDataGenerator from "./TestDataGenrator"

@@ -9,8 +9,8 @@
 
 	const dynamicComponent = shallowRef(null)
     const loadComponent = async ()=> {
-        const componentName = "Dash" // Replace with the actual component name
-        const componentPath = `./${componentName}.vue` // Replace with the actual path 
+        const componentName = "TestType" // Replace with the actual component name
+        const componentPath = `../components/Flow/typeComponents/${componentName}.vue` // Replace with the actual path 
 		dynamicComponent.value = (await import(componentPath)).default;
     }
 </script>

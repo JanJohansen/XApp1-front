@@ -13,6 +13,7 @@
 	import appBB from "../WsBBClient"
 	import ObjTree from "../components/ObjTree/ObjTree.vue"
 	import ObjRow from "../components/ObjTree/ObjectRow.vue"
+import { patch } from "../common/util"
 
 	const router = useRouter()
 	const route = useRoute()
@@ -21,50 +22,51 @@
 	const objects = reactive<any>({})
 
 
-	const patch = (rootObj: any, name: string, value: any): void => {
-		let lvl = 0
-		let pathArray = name.split(".")
-		// Patch object w. update
-		let prop = pathArray.shift()
-		if (!(prop! in rootObj)) {
-			// Create if not exists
-			rootObj[prop!] = {}
-		}
-		let obj = rootObj[prop!]
-		while (obj && pathArray.length > 1) {
-			prop = pathArray.shift()
-			if (!(prop! in obj)) {
-				obj[prop!] = {}
-			} // else nop
-			if (typeof obj[prop!] != "object") obj[prop!] = {} // Overwrite previous non-object value of property!
-			obj = obj[prop!]
-		}
-		// prop = pathArray.shift()
-		obj[prop!] = value
+	// const patch = (rootObj: any, name: string, value: any): void => {
+	// 	let lvl = 0
+	// 	let pathArray = name.split(".")
+	// 	// Patch object w. update
+	// 	let prop = pathArray.shift()
+	// 	if (!(prop! in rootObj)) {
+	// 		// Create if not exists
+	// 		rootObj[prop!] = {}
+	// 	}
+	// 	let obj = rootObj[prop!]
+	// 	while (obj && pathArray.length > 1) {
+	// 		prop = pathArray.shift()
+	// 		if (!(prop! in obj)) {
+	// 			obj[prop!] = {}
+	// 		} // else nop
+	// 		if (typeof obj[prop!] != "object") obj[prop!] = {} // Overwrite previous non-object value of property!
+	// 		obj = obj[prop!]
+	// 	}
+	// 	// prop = pathArray.shift()
+	// 	obj[prop!] = value
 
-		console.log("objects", objects)
-	}
+	// 	console.log("objects", objects)
+	// }
 
 	appBB.oSub("oIndex", (args) => {
 		console.log("oIndex", args)
 		for (let item in args) {
+			objects[item] = {}
 			appBB.oSub(item, (v, n) => {
 				console.log("Subbed:", { obj: n, value: v, type: typeof v })
-				patch(objects, n, v)
+				patch(v, objects[item])
 			})
 		}
 	})
 
 	// Get Values!
-	appBB.oSub("vIndex", (args) => {
-		console.log("vIndex", args)
-		for (let item in args) {
-			appBB.oSub(item, (v, n) => {
-				// console.log("vUpdtae:", n, "=", v, objects)
-				objects[n] = v
-			})
-		}
-	})
+	// appBB.oSub("vIndex", (args) => {
+	// 	console.log("vIndex", args)
+	// 	for (let item in args) {
+	// 		appBB.vSub(item, (v, n) => {
+	// 			// console.log("vUpdtae:", n, "=", v, objects)
+	// 			values[n] = v
+	// 		})
+	// 	}
+	// })
 </script>
 
 <style scoped>

@@ -1,156 +1,230 @@
 <template>
-	<div class="editor">
+	<div
+		class="editor"
+		ref="editor"
+		@mousedown.self.prevent="onEditorMouseDown"
+		@mousewheel="canvasZoom"
+	>
+		{{ editorModel.scale }} | {{ editorModel.origin.x }} |
+		{{ editorModel.origin.y }} |
 		<!-- touch-position context-menu needed for top level context menu - but not remaining template! -->
-		<context-menu touch-position context-menu :context-menu-model="editorModel.contextMenu"/>
-		<svg
-			class="svgCanvas"
-			ref="svgCanvas"
-			@mousewheel.prevent="zoom($event)"
-			:viewBox="viewBox"
-			tabindex="1"
-			preserveAspectRatio="xMinYMin meet"
-			@mousedown.left="mouseDown($event)"
+		<context-menu
+			touch-position
+			context-menu
+			:context-menu-model="editorModel.contextMenu"
+		/>
+		<div
+			class="canvas"
+			ref="canvas"
+			:style="getCanvasStyle"
+			@mousedown="onEditorMouseDown"
+			v-on:contextmenu.self.prevent
+			@wheel="canvasZoom"
 		>
-			<flow-node
+			<Node
 				v-for="node in flowModel.nodes"
-				:flow-editor-model="props.flowEditorModel"
-				:node-id="node.id"
-				:nodeModel="node"
-				:editorModel="editorModel"
-				:newconnection="newconnection"
-				:nodes="flowEditorModel.nodeModels"
-				:flow-model="flowModel"
-				@onnewconnection="newConnection($event)"
+				:key="node.id"
+				:node="node"
+				:flowEditorModel="flowEditorModel"
 			/>
-			<flow-connection v-for="(value, name) in flowModel.connections" :key="name" :flow-editor-model="flowEditorModel" :connection="value" />
-			<flow-drag-connection v-if="true" :newconnection="newconnection" />
-		</svg>
+			<svg class="svg" id="flowCanvasSVG" style="overflow: visible">
+				<flow-connection
+					v-for="connection in flowModel.connections"
+					:flow-store="flowEditorModel"
+					:connection="connection"
+				/>
+				<flow-drag-connection :flow-editor-model="flowEditorModel" />
+			</svg>
+		</div>
 	</div>
 </template>
 
 <script setup lang="ts">
-	import FlowNode from "./FlowNode.vue"
+	import { ref, computed, onMounted, onUpdated } from "vue"
+
+	import Node from "./FlowNode.vue"
+	import ContextMenu from "./ContextMenu.vue"
 	import FlowConnection from "./FlowConnection.vue"
 	import FlowDragConnection from "./FlowDragConnection.vue"
-	import ContextMenu from "./ContextMenu.vue"
-	import FlowTreeMenu from "./FlowTreeMenu.vue"
-	import FlowTreeMenuItem from "./FlowTreeMenuItem.vue"
-	import { ref, computed } from "vue"
-	import { IFlowDragConnection, IFlowEditorModel } from "../../common/flowTypes"
+
+	// import { IFlowEditorModel } from "../../common/flowTypes"
+	import { IFlowEditorModel } from "../Flow/types"
+	import { TFlowStore } from "../../stores/flowStore"
+
+	const zoomFactor = ref(1.1)
+	const panActive = ref(false)
+	const panStartX = ref(0)
+	const panStartY = ref(0)
+
+	const editor = ref<HTMLElement | null>(null)
+	const canvas = ref<HTMLElement | null>(null)
 
 	const props = defineProps<{
-		flowEditorModel: IFlowEditorModel
-		// editorModel: any
-		// flowModel: IFlow
+		flowEditorModel: TFlowStore
 	}>()
 	let editorModel = props.flowEditorModel.editorModel
 	let flowModel = props.flowEditorModel.flowModel
-	let nodes = props.flowEditorModel.nodeModels
 
-	const svgCanvas = ref(null)
-	const contextmenu = ref(null)
-	const rootMenu = ref(null)
-	const newconnection = ref<IFlowDragConnection>({})
-	const vBox = ref({ x: 0, y: 0, w: 900, h: 500 })
+	// let nodes = props.flowEditorModel.nodeModels
 
-	let dragging = false
-	let dragstart = { m: { x: 0, y: 0 } }
-	// let dragstart = null
-	let dragPos
+	// TMP TEST!
+	// 	onUpdated(()=>{
+	// 		console.log("EditorLeft:", editor.value!.getBoundingClientRect().left)
+	// 	})
 
-	console.log("FlowCanvas.props.editorModel", props.editorModel)
+	// onMounted(() => {
+	// 	// canvas.value?.addEventListener("mousemove", onTestMouseMoveCanvas)
+	// 	// editorModel.offsetLeft = editor.value?.offsetLeft
+	// })
 
-	const viewBox = computed(() => {
-		return vBox.value.x + " " + vBox.value.y + " " + vBox.value.w + " " + 10 //this.vBox.h;//"0 0 900 500";
-	})
+	const canvasZoom = (event: WheelEvent) => {
+		// event.preventDefault();
+		if (!canvas.value) return
+		if (event.deltaY == 0) return // Don't react on horizontal wheel!
 
-	const mouseDown = (evt) => {
-		// console.log("MouseDown", evt)
-		evt.preventDefault() // Dont mark text etc.
-		window.addEventListener("mousemove", mouseMove)
-		window.addEventListener("mouseup", mouseUp)
-		dragging = true
-		// dragstart = { m: cursorPoint(evt), boxX: vBox.value.x, boxY: vBox.y }
-		dragstart = { m: cursorPoint(evt) }
-		dragPos = cursorPoint(evt)
-		editorModel.selectedNodeId = ""
+		const boundingRect = editor.value.getBoundingClientRect()
+		const editorLeft = boundingRect.left
+		const editorRight = boundingRect.right
+		const editorTop = boundingRect.top
+		// const caBottom = boundingRect.bottom
+		const editorWidth = editorRight - editorLeft
+
+		const canvasX =
+			(event.clientX - editorLeft - editorModel.origin.x) / editorModel.scale
+		const canvasY =
+			(event.clientY - editorTop - editorModel.origin.y) / editorModel.scale
+		// const editorX = event.clientX - editorLeft
+		// const editorY = event.clientY - editorTop
+
+		// Calculate new scale
+		const oldScale = editorModel.scale
+		// FIXME: Change to percent pr. zoom . e.g. factor 1.1...
+		if (event.deltaY < 0) editorModel.scale = editorModel.scale * zoomFactor.value
+		else editorModel.scale = editorModel.scale / zoomFactor.value
+
+		// Limit min + max zoom
+		editorModel.scale = Math.max(0.1, editorModel.scale)
+		editorModel.scale = Math.min(10, editorModel.scale)
+
+		// Calculate new offsets to maintain point under mouse.
+		// Subtract mouse offset * increase in scaling from trnslation, to keep same point under mouse.
+		editorModel.origin.x =
+			editorModel.origin.x - canvasX * (editorModel.scale - oldScale)
+		editorModel.origin.y =
+			editorModel.origin.y - canvasY * (editorModel.scale - oldScale)
+
+		// console.log("editorX, clX:", editorX, event.clientX)
+		// console.log("editorLeft, editorRight, editorWidth:", editorLeft, editorRight, editorWidth)
+
+		event.preventDefault()
 	}
-	const mouseMove = (evt) => {
-		if (dragging) {
-			// console.log(evt);
-			var p = cursorPoint(evt)
 
-			//this.vBox.x -= p.x - this.dragPos.x;
-			vBox.value.x -= p.x - dragstart.m.x
-			vBox.value.y -= p.y - dragstart.m.y
-			//this.dragPos = this.cursorPoint(evt);
+	const onEditorMouseDown = (event: MouseEvent) => {
+		if (event.button == 2) {
+			// Mouse button 2 "typically" = right button
+			editorModel.rightMouseDownPos = { x: event.clientX, y: event.clientY }
+			return
 		}
-	}
-	const mouseUp = (evt) => {
-		window.removeEventListener("mousemove", mouseMove)
-		window.removeEventListener("mouseup", mouseUp)
-		dragging = false
-	}
-	const svgKeyDown = (evt) => {}
-	const newConnection = (evt) => {
-		console.log(evt)
-		flowModel.connections.push(evt)
-	}
-	// Get point in global SVG space
-	const cursorPoint = (evt) => {
-		var pt = svgCanvas.value.createSVGPoint()
-		pt.x = evt.clientX
-		pt.y = evt.clientY
-		var ctm = svgCanvas.value.getScreenCTM()
-		return pt.matrixTransform(ctm.inverse())
-	}
-	const zoom = (evt) => {
-		//console.log("Zooming:", evt, -evt.deltaY / 50);
-		var factor = -evt.deltaY / 1500
-		if (factor > 0 && vBox.value.w < 200) return // Limit zoom
-		if (factor < 0 && vBox.value.w > 5000) return // Limit zoom
+		panActive.value = true
+		panStartX.value = event.clientX
+		panStartY.value = event.clientY
 
-		var m = cursorPoint(evt)
-		let x = vBox.value.x
-		let y = vBox.value.y
-		let w = vBox.value.w
-		let h = (svgCanvas.value.clientHeight / svgCanvas.value.clientWidth) * w
+		editorModel.selectedNodeId = ""
+		editorModel.configNodeId = ""
 
-		var dx = (m.x - x) / w
-		vBox.value.w -= w * factor
-		vBox.value.x += dx * factor * w
+		window.addEventListener("mousemove", onMouseMove)
+		window.addEventListener("mouseup", onMouseUp)
 
-		var dy = (m.y - y) / h
-		vBox.value.y += dy * factor * h
+		// console.log("EditorMouseDown: e =", event)
 	}
-	const contextmenuSelected = (evt) => {
-		// $emit("")
-		console.log("MENU!!!!:", evt)
+
+	const onMouseMove = (event: MouseEvent) => {
+		if (!panActive.value || !canvas.value) return
+		event.preventDefault()
+
+		// if scaling before translating!!! --> const deltaX = (event.clientX - panStartX.value) * canvasScale.value
+		const deltaX = event.clientX - panStartX.value
+		const deltaY = event.clientY - panStartY.value
+		// const p = cursorPoint(event)
+		// const deltaX = p.x - panStartX.value
+		// const deltaY = p.y - panStartY.value
+
+		editorModel.origin.x += deltaX
+		editorModel.origin.y += deltaY
+
+		panStartX.value = event.clientX
+		panStartY.value = event.clientY
 	}
+
+	const onMouseUp = (event: MouseEvent) => {
+		panActive.value = false
+		window.removeEventListener("mousemove", onMouseMove)
+		window.removeEventListener("mouseup", onMouseUp)
+	}
+
+	const getCanvasStyle = computed(() => {
+		/*  NOTE: 
+			Transfiormation order matters! translation before scaling is not the same as scaling before tramslation.
+			The trsnalation will be scaled if done first!
+		*/
+		return `transform: translate(${editorModel.origin.x}px, ${editorModel.origin.y}px) scale(${editorModel.scale})`
+	})
 </script>
+
 <style>
 	.editor {
-		background: lightgray;
+		background: #000000ff;
+		position: relative;
+		overflow: clip;
 		height: 100%;
 		width: 100%;
 		display: flex;
-		flex-direction: column;
-		flex-wrap: nowrap;
 	}
-	.svgCanvas {
-		background: darkgray;
-		margin: 0;
-		flex: 1 1 auto;
+	.canvas {
+		background: #ffffff05;
+		position: absolute;
+		overflow: visible;
+		height: 1000000px;
+		width: 1000000px;
+		transform-origin: top left;
+		line-height: 1;
 	}
-
-	.contextmenu {
-		border-radius: 5px;
-		background: slategrey;
-		padding: 3px;
-		border: 1px black solid;
+	.canvas > * {
+		position: absolute;
 	}
 
-	.contextmenu li {
-		list-style-position: inside;
+	.svg {
+		position: absolute;
+		overflow: visible;
+		pointer-events: none;
+	}
+
+	.nodes {
+		position: relative;
+	}
+
+	.node {
+		position: absolute;
+		border: 1px solid #000;
+		background-color: #fff;
+		padding: 10px;
+		cursor: move;
+	}
+
+	.node > div {
+		position: absolute;
+		width: 10px;
+		height: 10px;
+		background-color: #000;
+	}
+
+	.wires {
+		position: absolute;
+		pointer-events: none;
+	}
+
+	.wire {
+		position: absolute;
+		border: 1px solid #000;
 	}
 </style>

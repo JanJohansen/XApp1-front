@@ -54,7 +54,9 @@
 	// })
 
 	const rowStyle = (level: number) => {
-		return "margin: 0 " + level * 20 + "px;"
+		let style = "margin: 0 " + level * 20 + "px;"
+		if(level == 0) style += "color: white;"
+		return style
 	}
 </script>
 

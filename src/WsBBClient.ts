@@ -34,21 +34,47 @@ class WsBBClient {
 		this.events[name]!.push(cb)
 	}
 
+	// TODO: Implement "Contect" wrapper to allow different parts of app to subscribe+unsubscribe + mass-unsib!
+	/* TODO: OR return a DB object reference?
+		let obj = bb.getRemoteObj("oid1")
+		obj._$onUpdate((upd)=>{})
+		obj.call("calls.toggle", args)
+		obj.freeObj()
+
+		let lObj = bb.createLocalObject({}, "oid")
+		lObj.calls.add("callName", (args)=>{})
+		lObj.ins.add("inName", ()=>{})
+	*/
+	// TODO: Implement unsibscribe!
+
 	// PubSub Object API ------------
-	oSubs: { [name: string]: { lastVal: any; cbs: [cb: (value: any, name: string) => void] | [] } } = {}
-	oPub(name: string, value: any) {
-		this.protocolHandler.notify("oPub", { n: name, v: value })
+	oSubs: { [oId: string]: { lastVal: any; cbs: [cb: (value: any, oId: string) => void] | [] } } = {}
+	oPub(oId: string, value: any) {
+		this.protocolHandler.notify("oPub", { n: oId, v: value })
 	}
-	oSub(name: string, cb: (value: any, name: string) => void) {
-		if (!(name in this.oSubs)) {
-			this.oSubs[name] = { lastVal: undefined, cbs: [] }
-			this.protocolHandler.notify("oSub", { n: name })
+	oSub(oId: string, cb: (value: any, oId: string) => void ) {
+		if (!(oId in this.oSubs)) {
+			this.oSubs[oId] = { lastVal: undefined, cbs: [] }
+			this.protocolHandler.notify("oSub", { n: oId })
 		} else {
 			// Already subscribed from server
 			// Get local cached value - _if it was retrived by a "val" update_
-			if(this.oSubs[name].lastVal != undefined) cb(this.oSubs[name].lastVal, name)
+			if (this.oSubs[oId].lastVal != undefined) cb(this.oSubs[oId].lastVal, oId)
 		}
-		this.oSubs[name].cbs.push(cb)
+		this.oSubs[oId].cbs.push(cb)
+		return { oId, cb }
+	}
+	oUnsub(token: { oId: string; cb: (value: any, oId: string) => void }) {
+		let sub = this.oSubs[token.oId]
+		if (sub == undefined) return
+		const index = sub.cbs.indexOf(token.cb)
+		if (index) sub.cbs.splice(index, 1)
+
+		// If no more callbacks, notify the server and clean up
+		if (this.oSubs[token.oId].cbs.length === 0) {
+			this.protocolHandler.notify("oUnsub", { n: token.oId })
+			delete this.oSubs[token.oId]
+		}
 	}
 	async oExists(name: string) {
 		return this.protocolHandler.call("oExists", { n: name })
@@ -66,7 +92,7 @@ class WsBBClient {
 		} else {
 			// Already subscribed from server
 			// Get local cached value - _if it was retrived by a "val" update_
-			if(this.vSubs[valueId].lastVal != undefined) cb(this.vSubs[valueId].lastVal, valueId)
+			if (this.vSubs[valueId].lastVal != undefined) cb(this.vSubs[valueId].lastVal, valueId)
 		}
 		this.vSubs[valueId].cbs.push(cb)
 	}

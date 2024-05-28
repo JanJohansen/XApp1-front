@@ -1,3 +1,10 @@
+
+/* JJ: Override quasar styles */
+.q-dark {
+	color:lightgray;	/* Base text color*/
+}
+
+/* JJ: Genral styles */
 body {
 	background-color: black;
 }
