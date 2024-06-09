@@ -1,13 +1,11 @@
-
-import { IFlowModel, IFlowNode, IFlowNodeTypeInfo } from "../../../../back/src/common/flowTypes"
-
-export * from "../../../../back/src/common/flowTypes"
+import { IChildNodeInfo, IFlowModel, IFlowNode, IFlowNodeTypeInfo } from "../../../../back/src/common/flowTypes"
 
 export interface IEditorModel {
-	scale: number
-	origin: { x: number; y: number }
-	selectedNodeId: string
+	selectedNodeIds: string[]
+	configNodeId: string
+	editNodeId: string
 	contextMenu: any
+	rightMouseDownPos: { x: number, y: number }
 	newConnection: {
 		outputNodeId?: string
 		outputName?: string
@@ -18,6 +16,7 @@ export interface IEditorModel {
 		mouseX: number
 		mouseY: number
 	} | null
+	nodes: { [nodeId: string]: IChildNodeInfo }
 }
 
 export interface IFlowEditorModel {

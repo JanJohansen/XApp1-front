@@ -1,10 +1,11 @@
-import { IFlowNode, IFlowConnection, IChildNodeInfo } from "./../common/flowTypes"
 import { defineStore } from "pinia"
-import { computed, reactive, ref, watch, watchEffect } from "vue"
 
-import { IFlowNodeTypeInfo, IFlowModel, IContextMenu, IEditorModel } from "../components/Flow/types"
+import { computed, reactive, ref, watch, watchEffect } from "vue"
+import { IFlowNode, IFlowConnection, IChildNodeInfo, IFlowModel, IFlowNodeTypeInfo } from "./../common/flowTypes"
+import { IContextMenu, IEditorModel } from "../components/Flow/types"
+
 import appBB from "../WsBBClient"
-import { patch, generateBase64Uuid } from "../common/util"
+import { patch, generateUid } from "../common/util"
 
 import { useRoute } from "vue-router"
 import router from "../routes"
@@ -12,34 +13,28 @@ import router from "../routes"
 export * from "../../../back/src/common/flowTypes"
 
 export const useStore = defineStore("flowStore", () => {
-	const IOElemSym = Symbol("IOElement")
 	const flowList = reactive({}) as { [flowId: string]: IFlowModel }
 
-	// TODO: Use nodeId from router-route. Use watchEffect to retrieve new SubFlowNode data
 	const route = useRoute()
 	const flowNodeId = ref<string>(route.params.id as string)
-	// watch(
-	// 	() => route.fullPath,
-	// 	async () => {
-	// 		console.log("route fullPath updated", route.fullPath)
-	// 		console.log("Load new flow...", route.params.id)
-	// 	}
-	// )
 
-	const flowModel = reactive({
-		_oid: "testID",
+	const flowModelBase: IFlowModel = {
 		name: "FlowModelName",
-		type: ["FlowNode"],
-		nodeType: "Flow",
+		type: ["FlowNode", "RootFlow"],
+		nodeTypeId: "Flow",
 		ins: {},
 		outs: {},
-		nodes: {} as { [nodeId: string]: IChildNodeInfo },
-		connections: [] as IFlowConnection[]
-	})
+		nodes: {} as { [nodeId: string]: IChildNodeInfo | null },
+		connections: [] as IFlowConnection[],
+		scale: 1,
+		origin: { x: 0, y: 0 }
+	}
+	let flowModel: IFlowModel = reactive(flowModelBase)
 
 	// If id of this flow node chnges, load relevant data!
 	watchEffect(() => {
-		const id = typeof route.params.id == "string" ? route.params.id : route.params.id[0]
+		let id = ""
+		if(route.params.id) id = typeof route.params.id == "string" ? route.params.id : route.params.id[0]
 		loadFlow(id)
 	})
 
@@ -57,10 +52,9 @@ export const useStore = defineStore("flowStore", () => {
 	})
 
 	const flowNodeTypeInfos = reactive({}) as { [typeName: string]: IFlowNodeTypeInfo }
-	const editorModel = reactive({
-		scale: 2.0,
-		origin: { x: 0, y: 0 },
-		selectedNodeId: "",
+	const editorModel = reactive<IEditorModel>({
+		selectedNodeIds: [],
+		editNodeId: "",
 		configNodeId: "",
 		contextMenu: {}, //contextMenu,
 		rightMouseDownPos: { x: 0, y: 0 },
@@ -74,12 +68,6 @@ export const useStore = defineStore("flowStore", () => {
 			mouseX: number
 			mouseY: number
 		} | null,
-		// nodes: {} as {
-		// 	[nodeId: string]: {
-		// 		ins: { [inName: string]: { element: HTMLElement; x: number; y: number } }
-		// 		outs: { [inName: string]: { element: HTMLElement; x: number; y: number } }
-		// 	}
-		// }
 		nodes: {} as { [nodeId: string]: IChildNodeInfo }
 	})
 	const nodeModels = reactive<{ [nodeId: string]: IFlowNode }>({})
@@ -124,10 +112,20 @@ export const useStore = defineStore("flowStore", () => {
 			// flowNodeId.value = Object.keys(flowList)[0]
 			router.push({ path: "/flow/" + Object.keys(flowList)[0] })
 		}
-
+		
+		flowNodeId.value = flowId
+		// flowModel = reactive(flowModelBase)
+		// flowModel.nodes = {}
+		// flowModel.connections = []
+		
 		console.log("Getting data for flow:", flowId)
-		appBB.oSub(flowNodeId.value, (upd, n) => {
+		let sub = null
+		if(sub) appBB.oUnsub(sub)
+		sub = appBB.oSub(flowNodeId.value, (upd, n) => {
 			console.log("Got data for flow:", upd)
+			// Clear flowModel
+			for(const prop in flowModel) delete flowModel[prop]
+
 			patch(upd, flowModel, { setIfSame: false }) // Dynamically update if model changes on server.
 			if (upd.nodes) {
 				// update to nodes in flow.
@@ -151,7 +149,7 @@ export const useStore = defineStore("flowStore", () => {
 	}
 	async function addNode(nodeTypeId: string, x: number, y: number) {
 		console.log("Adding node:", nodeTypeId)
-		let newNodeId = generateBase64Uuid()
+		let newNodeId = generateUid()
 		// Add model for node... (To be instantiated on server side after deployment of this flow.)
 		flowModel.nodes[newNodeId] = { id: newNodeId, x, y, nodeTypeId, config: { ins: {} } }
 		// Set initial config based on default values of inputs.
@@ -163,7 +161,39 @@ export const useStore = defineStore("flowStore", () => {
 		}
 	}
 
-	async function removeNode(nodeId: string) {}
+	async function removeSelectedNodes() {
+		console.log("Delete:", editorModel.selectedNodeIds)
+		editorModel.selectedNodeIds.forEach((nodeId) => {
+			console.log("Delete:", nodeId)
+			if (flowModel.nodes[nodeId]) {
+				delete flowModel.nodes[nodeId]
+				// FIXME: HACK - to send null to server indicating to destroy existing node.!
+				setTimeout(() => {
+					flowModel.nodes[nodeId] = null
+				}, 0)
+			}
+			// Remove all connections without nodes!
+			flowModel.connections.forEach((connextion, index) => {
+				if (!(connextion.inputNodeId in flowModel.nodes) || !(connextion.outputNodeId in flowModel.nodes)) {
+					flowModel.connections.splice(index, 1)
+				}
+			})
+		})
+		editorModel.selectedNodeIds = [] // No selected node as it's gone!
+		// NOTE: Actual removal of the server instnce will be done when flow is re-deployed.
+	}
+
+	function duplicateNode() {
+		const nodeId = editorModel.selectedNodeIds[0]
+		if (nodeId) {
+			console.log("Adding node:", nodeTypeId)
+			let newNodeId = generateUid()
+			// Add model for node... (To be instantiated on server side after deployment of this flow.)
+			flowModel.nodes[newNodeId] = {}
+			patch(flowModel.nodes[nodeId], flowModel.nodes[newNodeId])
+		}
+	}
+
 	async function moveNode() {}
 	async function addConnection() {}
 	async function removeConnection() {}
@@ -187,13 +217,15 @@ export const useStore = defineStore("flowStore", () => {
 
 	function newFlow() {
 		console.log("Creating new flow...")
-		let newFlowId = "@ID:" + (Math.random() * Number.MAX_SAFE_INTEGER).toString(16)
+		let newFlowId = generateUid()//"@ID:" + (Math.random() * Number.MAX_SAFE_INTEGER).toString(16)
 		let newFlow: IFlowModel = {
 			type: ["FlowNode", "RootFlow"],
 			nodeTypeId: "Flow",
 			name: "New Flow...",
 			nodes: {},
-			connections: [] as IFlowConnection[]
+			connections: [] as IFlowConnection[],
+			scale: 1,
+			origin: {x:0, y:0}
 		}
 		appBB.oPub(newFlowId, newFlow)
 
@@ -239,6 +271,8 @@ export const useStore = defineStore("flowStore", () => {
 		flowNodeTypeInfos,
 		flowList,
 		newFlow,
+		removeSelectedNodes,
+		duplicateNode,
 		loadFlowList,
 		loadFlowNodeTypeInfos,
 		loadFlow,

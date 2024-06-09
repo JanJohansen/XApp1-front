@@ -1,12 +1,14 @@
 <template>
 	<div
+		v-if="props.node != null"
 		class="function-block"
 		:style="getNodeStyle"
 		@mousedown.self.prevent.stop="nodeMouseDown"
-		:class="{ 'selected-node-rect': editorModel.configNodeId == node.id }"
+		:class="{ 'selected-node-rect': editorModel.selectedNodeIds.includes(node.id) }"
 	>
 		<div class="node-toolbar" @mousedown.prevent.stop="nodeMouseDown">
-			<q-icon name="settings" @click="flowEditorModel.editorModel.configNodeId = node.id" />
+			<q-icon name="edit" @click="editorModel.editNodeId = props.node.id" />
+			<q-icon name="settings" @click="editorModel.configNodeId = props.node.id"	/>
 		</div>
 		<!-- Node status - below node/function block -->
 		<div class="function-node-id" @mousedown.prevent.stop="nodeMouseDown">
@@ -38,13 +40,13 @@
 </template>
 
 <script setup lang="ts">
-	import { reactive, onMounted, onUnmounted, computed, watchEffect, shallowRef } from "vue"
+	import { reactive, computed, watchEffect, shallowRef } from "vue"
 	import { IFlowEditorModel, IFlowNodeTypeInfo, IFlowNode, IChildNodeInfo } from "../../common/flowTypes"
 	import { TFlowStore } from "../../stores/flowStore"
 
 	const props = defineProps<{
 		flowEditorModel: TFlowStore
-		node: IChildNodeInfo
+		node: IChildNodeInfo | null
 	}>()
 
 	const dynamicNodeContentComponent = shallowRef(null)
@@ -53,6 +55,7 @@
 		nodeTypeInfo: null
 	})
 	let editorModel = props.flowEditorModel.editorModel
+	const flowModel = props.flowEditorModel.flowModel
 
 	const snapX = 10
 	const snapY = 10
@@ -62,13 +65,12 @@
 	// let flowModelNodeData = props.flowEditorModel.flowModel.nodes[props.node.id]
 
 	const loadComponent = async (componentPath: string) => {
-		// const componentName = "TestType" // Replace with the actual component name
-		// const componentPath = `../components/Flow/typeComponents/${componentName}.vue` // Replace with the actual path
 		dynamicNodeContentComponent.value = (await import(componentPath)).default
 	}
 
 	// Get data (nodeModel + nodeTypeInfo) for node
 	watchEffect(() => {
+		if(props.node == null) return 
 		n.nodeModel = props.flowEditorModel.nodeModels[props.node.id]
 		n.nodeTypeInfo = props.flowEditorModel.flowNodeTypeInfos[props.node.nodeTypeId]
 
@@ -79,24 +81,25 @@
 			} else loadComponent("../Flow/typeComponents/default.vue")
 		}
 
-		console.log(props.node.id, n)
+		// console.log(props.node.id, n)
 	})
 
 	const nodeMouseDown = (event: MouseEvent) => {
-		grabPosX = event.clientX - (props.node.x - snapX / 2) * editorModel.scale
-		grabPosY = event.clientY - (props.node.y - snapY / 2) * editorModel.scale
+		grabPosX = event.clientX - (props.node.x - snapX / 2) * flowModel.scale
+		grabPosY = event.clientY - (props.node.y - snapY / 2) * flowModel.scale
 
-		editorModel.configNodeId = props.node.id
+		if(event.ctrlKey || event.shiftKey) editorModel.selectedNodeIds.push(props.node!.id)
+		else editorModel.selectedNodeIds[0] = props.node!.id
 
 		window.addEventListener("mousemove", onMouseMove)
 		window.addEventListener("mouseup", onMouseUp)
 	}
 
 	const onMouseMove = (event: MouseEvent) => {
-		// props.node.x = (event.clientX - nodeOffsetX) / editorModel.scale
-		// props.node.y = (event.clientY - nodeOffsetY) / editorModel.scale
-		let newX = (event.clientX - grabPosX) / editorModel.scale
-		let newY = (event.clientY - grabPosY) / editorModel.scale
+		// props.node.x = (event.clientX - nodeOffsetX) / flowModel.scale
+		// props.node.y = (event.clientY - nodeOffsetY) / flowModel.scale
+		let newX = (event.clientX - grabPosX) / flowModel.scale
+		let newY = (event.clientY - grabPosY) / flowModel.scale
 
 		// Snapo to grid
 		newX = Math.ceil(newX / snapX) * snapX

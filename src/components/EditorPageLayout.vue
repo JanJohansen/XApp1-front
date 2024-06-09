@@ -1,5 +1,5 @@
 <template>
-	<q-layout view="hHh LpR fFf" class="bg-dark-900">
+	<q-layout view="hHh LpR fFf" class="bg-dark-900 page">
 		<q-header bordered class="bg-primary text-white">
 			<q-toolbar>
 				<q-btn v-if="slots.left" dense flat round icon="menu" @click="toggleLeftDrawer" />
@@ -20,10 +20,13 @@
 			:breakpoint="0"
 		>
 			<slot name="left"> Left </slot>
-			<div v-touch-pan.preserveCursor.prevent.mouse.horizontal="resizeLeftDrawer" class="q-left-drawer__resizer" />
+			<div
+				v-touch-pan.preserveCursor.prevent.mouse.horizontal="resizeLeftDrawer"
+				class="q-left-drawer__resizer"
+			/>
 		</q-drawer>
 
-		<q-drawer
+		<!-- <q-drawer
 			v-model="rightDrawerOpen"
 			side="right"
 			behavior="desktop"
@@ -34,11 +37,15 @@
 		>
 			<div v-touch-pan.preserveCursor.prevent.mouse.horizontal="resizeRightDrawer" class="q-right-drawer__resizer" />
 			<slot name="right"> Right </slot>
-		</q-drawer>
-
+		</q-drawer> -->
 		<q-page-container class="column full-height">
-			<!-- class="column full-height" needed to allow default slot to fill space in flexbox layout used by quasar q-page-container -->
-			<slot> Default slot... </slot>
+			<div style="height: 100%; width: 100%; position: relative;">
+				<!-- class="column full-height" needed to allow default slot to fill space in flexbox layout used by quasar q-page-container -->
+				<slot> Default slot... </slot>
+				<floatingWindow v-if="rightDrawerOpen" class="window">
+					<slot name="right"> Right </slot>
+				</floatingWindow>
+			</div>
 		</q-page-container>
 
 		<q-footer bordered class="bg-grey-8 text-white">
@@ -54,6 +61,7 @@
 <script setup lang="ts">
 	import { ref, useSlots, onMounted } from "vue"
 	import NavigationMenu from "./NavigationMenu.vue"
+	import floatingWindow from "../components/FloatingWindow.vue"
 
 	const slots = useSlots()
 	const leftDrawerOpen = ref(false) // computed(slots. .left != undefined) // ref(slots.left != undefined)
@@ -65,12 +73,12 @@
 	let initialRightWidth = -1
 
 	// Set initial panel sizes based on ocupancy of slots.
-	onMounted(()=> {
+	onMounted(() => {
 		leftDrawerOpen.value = slots.left != undefined
 		rightDrawerOpen.value = slots.right != undefined
 
-		if(initialLeftWidth < 0) leftWidth.value = 300
-		if(initialRightWidth < 0) rightWidth.value = 300
+		if (initialLeftWidth < 0) leftWidth.value = 300
+		if (initialRightWidth < 0) rightWidth.value = 300
 	})
 
 	function toggleLeftDrawer() {
@@ -95,13 +103,16 @@
 	}
 </script>
 <style scoped>
+	.page{
+		overflow: hidden;
+	}
 	.q-left-drawer__resizer {
 		position: absolute;
 		top: 0;
 		bottom: 0;
 		right: -10px;
 		width: 10px;
-		background-color: #FFF1;
+		background-color: #fff1;
 		cursor: ew-resize;
 	}
 	.q-right-drawer__resizer {
@@ -111,7 +122,14 @@
 		bottom: 0;
 		left: -10px;
 		width: 10px;
-		background-color: #FFF1;
+		background-color: #fff1;
 		cursor: ew-resize;
+	}
+	.window {
+		right: 2%;
+		top: 2%;
+		width: 48%;
+		z-index: 9999;
+		background-color: #080808F0;
 	}
 </style>

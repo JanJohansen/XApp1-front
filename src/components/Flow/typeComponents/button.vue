@@ -17,7 +17,7 @@
 	}>()
 
 	const handleClick = function () {
-		props.flowEditorModel.vPub(props.node.id + ".ins.in", Date.now())
+		props.flowEditorModel.vPub(props.node.id + ".outs.out", Date.now())
 	}
 </script>
 

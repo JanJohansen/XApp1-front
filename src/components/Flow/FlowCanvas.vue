@@ -5,8 +5,8 @@
 		@mousedown.self.prevent="onEditorMouseDown"
 		@mousewheel="canvasZoom"
 	>
-		{{ editorModel.scale }} | {{ editorModel.origin.x }} |
-		{{ editorModel.origin.y }} |
+		{{ flowModel.scale }} | {{ flowModel.origin.x }} |
+		{{ flowModel.origin.y }} |
 		<!-- touch-position context-menu needed for top level context menu - but not remaining template! -->
 		<context-menu
 			touch-position
@@ -17,13 +17,13 @@
 			class="canvas"
 			ref="canvas"
 			:style="getCanvasStyle"
-			@mousedown="onEditorMouseDown"
+			@mousedown.prevent="onEditorMouseDown"
 			v-on:contextmenu.self.prevent
 			@wheel="canvasZoom"
 		>
 			<Node
-				v-for="node in flowModel.nodes"
-				:key="node.id"
+				v-for="(node, i) in flowModel.nodes"
+				:key="i"
 				:node="node"
 				:flowEditorModel="flowEditorModel"
 			/>
@@ -47,8 +47,6 @@
 	import FlowConnection from "./FlowConnection.vue"
 	import FlowDragConnection from "./FlowDragConnection.vue"
 
-	// import { IFlowEditorModel } from "../../common/flowTypes"
-	import { IFlowEditorModel } from "../Flow/types"
 	import { TFlowStore } from "../../stores/flowStore"
 
 	const zoomFactor = ref(1.1)
@@ -90,28 +88,28 @@
 		const editorWidth = editorRight - editorLeft
 
 		const canvasX =
-			(event.clientX - editorLeft - editorModel.origin.x) / editorModel.scale
+			(event.clientX - editorLeft - flowModel.origin.x) / flowModel.scale
 		const canvasY =
-			(event.clientY - editorTop - editorModel.origin.y) / editorModel.scale
+			(event.clientY - editorTop - flowModel.origin.y) / flowModel.scale
 		// const editorX = event.clientX - editorLeft
 		// const editorY = event.clientY - editorTop
 
 		// Calculate new scale
-		const oldScale = editorModel.scale
+		const oldScale = flowModel.scale
 		// FIXME: Change to percent pr. zoom . e.g. factor 1.1...
-		if (event.deltaY < 0) editorModel.scale = editorModel.scale * zoomFactor.value
-		else editorModel.scale = editorModel.scale / zoomFactor.value
+		if (event.deltaY < 0) flowModel.scale = flowModel.scale * zoomFactor.value
+		else flowModel.scale = flowModel.scale / zoomFactor.value
 
 		// Limit min + max zoom
-		editorModel.scale = Math.max(0.1, editorModel.scale)
-		editorModel.scale = Math.min(10, editorModel.scale)
+		flowModel.scale = Math.max(0.1, flowModel.scale)
+		flowModel.scale = Math.min(10, flowModel.scale)
 
 		// Calculate new offsets to maintain point under mouse.
 		// Subtract mouse offset * increase in scaling from trnslation, to keep same point under mouse.
-		editorModel.origin.x =
-			editorModel.origin.x - canvasX * (editorModel.scale - oldScale)
-		editorModel.origin.y =
-			editorModel.origin.y - canvasY * (editorModel.scale - oldScale)
+		flowModel.origin.x =
+			flowModel.origin.x - canvasX * (flowModel.scale - oldScale)
+		flowModel.origin.y =
+			flowModel.origin.y - canvasY * (flowModel.scale - oldScale)
 
 		// console.log("editorX, clX:", editorX, event.clientX)
 		// console.log("editorLeft, editorRight, editorWidth:", editorLeft, editorRight, editorWidth)
@@ -129,8 +127,7 @@
 		panStartX.value = event.clientX
 		panStartY.value = event.clientY
 
-		editorModel.selectedNodeId = ""
-		editorModel.configNodeId = ""
+		editorModel.selectedNodeIds.length = 0
 
 		window.addEventListener("mousemove", onMouseMove)
 		window.addEventListener("mouseup", onMouseUp)
@@ -149,8 +146,8 @@
 		// const deltaX = p.x - panStartX.value
 		// const deltaY = p.y - panStartY.value
 
-		editorModel.origin.x += deltaX
-		editorModel.origin.y += deltaY
+		flowModel.origin.x += deltaX
+		flowModel.origin.y += deltaY
 
 		panStartX.value = event.clientX
 		panStartY.value = event.clientY
@@ -167,7 +164,7 @@
 			Transfiormation order matters! translation before scaling is not the same as scaling before tramslation.
 			The trsnalation will be scaled if done first!
 		*/
-		return `transform: translate(${editorModel.origin.x}px, ${editorModel.origin.y}px) scale(${editorModel.scale})`
+		return `transform: translate(${flowModel.origin.x}px, ${flowModel.origin.y}px) scale(${flowModel.scale})`
 	})
 </script>
 

@@ -40,16 +40,18 @@
 	// 	}
 	// }
 	const validJSON = computed(() => {
-		try {
-			JSON.parse(value.value)
-			return true
-		} catch {
-			return false
-		}
+		return true
+		// try {
+		// 	JSON.parse(value.value)
+		// 	return true
+		// } catch {
+		// 	return false
+		// }
 	})
 
 	const onSendButtonClick = function () {
-		props.flowEditorModel.vPub(props.node.id + ".outs.out", JSON.parse(value.value))
+		// props.flowEditorModel.vPub(props.node.id + ".outs.out", JSON.parse(value.value))
+		props.flowEditorModel.vPub(props.node.id + ".outs.out", value.value)
 	}
 	const onClearButtonClick = function () {
 		value.value = "{}"

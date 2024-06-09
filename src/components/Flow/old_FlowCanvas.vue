@@ -73,7 +73,7 @@
 		// dragstart = { m: cursorPoint(evt), boxX: vBox.value.x, boxY: vBox.y }
 		dragstart = { m: cursorPoint(evt) }
 		dragPos = cursorPoint(evt)
-		editorModel.selectedNodeId = ""
+		editorModel.selectedNodeId = []
 	}
 	const mouseMove = (evt) => {
 		if (dragging) {

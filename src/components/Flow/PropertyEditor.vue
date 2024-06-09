@@ -1,11 +1,12 @@
 <template>
-	<q-scroll-area style="height: 100%">
+	<!-- <q-scroll-area style="height: 100%"> -->
 		<q-card class="card" v-if="nodeId">
 			<q-card-section class="">
 				<div class="text-h4" style="display: inline-block; white-space: nowrap">
 					<q-icon v-if="nodeTypeInfo?.icon" :name="nodeTypeInfo?.icon"></q-icon>
 					{{ nodeModel?.displayName || nodeTypeInfo?.nodeTypeName }}
 					<q-btn icon="edit" dense text-color="green" />
+					<q-btn icon="delete" dense text-color="red" @click="onRemove" />
 				</div>
 				<!-- <q-space />
 				<q-btn icon="close" flat round dense v-close-popup /> -->
@@ -71,23 +72,18 @@
 						<q-input v-if="props.row.type=='string'" dense :model-value="props.value" />
 						<textarea v-else style="width: 100%; resize: vertical">{{ props }}</textarea> -->
 						<!-- <q-input dense :model-value="props.value" /> -->
-						<q-input
-							dense
-							borderless
-							type="text"
-							v-model="nodeModel!.config.ins![props.row.name]"
-						/>
+						<q-input dense borderless type="text" v-model="nodeModel!.config.ins![props.row.name]" />
 					</q-td>
 				</template>
 			</q-table>
 		</q-card>
-	</q-scroll-area>
+	<!-- </q-scroll-area> -->
 </template>
 
 <style></style>
 
 <script setup lang="ts">
-	import { computed, reactive, ref, watchEffect } from "vue"
+	import { computed, ref, watchEffect } from "vue"
 	// import { IFlowEditorModel, IFlowNode, IFlowNodeTypeInfo } from "./types"
 	import { IChildNodeInfo, TFlowStore } from "../../stores/flowStore"
 	import { IFlowNodeTypeInfo } from "./types"
@@ -103,7 +99,7 @@
 	watchEffect(() => {
 		nodeId.value = props.flowEditorModel.editorModel.configNodeId
 		nodeModel.value = props.flowEditorModel.flowModel.nodes[nodeId.value]
-		console.log("nodeModel:", nodeModel.value)
+		// console.log("nodeModel:", nodeModel.value)
 		if (nodeModel.value) nodeTypeInfo.value = props.flowEditorModel.flowNodeTypeInfos[nodeModel.value.nodeTypeId]
 		else nodeTypeInfo.value = null
 	})
@@ -126,6 +122,10 @@
 		}
 		return properties
 	})
+
+	function onRemove() {
+		props.flowEditorModel.removeSelectedNodes()
+	}
 
 	const columns = [
 		{

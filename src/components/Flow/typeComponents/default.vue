@@ -6,19 +6,19 @@
 		<div class="ios">
 			<slot name="inputs">
 				<div class="inputs" @mousedown.prevent>
-					<div class="input" v-for="(input, name, index) in n.nodeTypeInfo?.ins">
+					<div class="input" v-for="inputName in ins">
 						<span
 							class="input-circle"
-							:class="{ 'circle-flash': flash('ins.' + name) }"
-							@mousedown.stop.prevent="inputMouseDown($event, name as string)"
-							@mouseup.self="inputMouseUp($event, name as string)"
+							:class="{ 'circle-flash': flash('ins.' + inputName) }"
+							@mousedown.stop.prevent="inputMouseDown($event, inputName as string)"
+							@mouseup.self="inputMouseUp($event, inputName as string)"
 							:ref="
 								(el) => {
-									updateInput(name, el)
+									updateInput(inputName, el)
 								}
 							"
 						></span>
-						<span class="input-name">{{ name }}</span>
+						<span class="input-name">{{ inputName }}</span>
 					</div>
 				</div>
 			</slot>
@@ -29,17 +29,17 @@
 				<div class="outputs" @mousedown.prevent>
 					<div
 						class="output"
-						v-for="(out, name, index) in n.nodeTypeInfo?.outs"
+						v-for="outputName in outs"
 					>
-						<span class="output-name">{{ name }}</span>
+						<span class="output-name">{{ outputName }}</span>
 						<span
 							class="output-circle"
-							:class="{ 'circle-flash': flash('outs.' + name) }"
-							@mousedown.stop.prevent="outputMouseDown($event, name as string)"
-							@mouseup.self="outputMouseUp($event, name as string)"
+							:class="{ 'circle-flash': flash('outs.' + outputName) }"
+							@mousedown.stop.prevent="outputMouseDown($event, outputName as string)"
+							@mouseup.self="outputMouseUp($event, outputName as string)"
 							:ref="
 								(el) => {
-									updateOutput(name, el)
+									updateOutput(outputName, el)
 								}
 							"
 						></span>
@@ -91,9 +91,31 @@
 	watchEffect(() => {
 		n.nodeModel = props.flowEditorModel.nodeModels[props.node.id]
 		n.nodeTypeInfo = props.flowEditorModel.flowNodeTypeInfos[props.node.nodeTypeId]
-		console.log(props.node.id, n)
 	})
-
+	const ins = computed(()=>{
+		let ins = []
+		// Ad inputs from type definition
+		for(const input in n.nodeTypeInfo.ins) {
+			ins.push(input)
+		}
+		// Ad inputs from live object definition
+		for(const input in n.nodeModel?.ins) {
+			ins.push(input)
+		}
+		return ins
+	})
+	const outs = computed(()=>{
+		let outs = []
+		// Ad outputs from type definition
+		for(const output in n.nodeTypeInfo.outs) {
+			outs.push(output)
+		}
+		// Ad outputs from live object definition
+		for(const output in n.nodeModel?.outs) {
+			outs.push(output)
+		}
+		return outs
+	})
 	const flash = (arg)=>{
 		// console.log("*** DEBUG!", arg)
 		if(props.flowEditorModel.nodeModels[props.node.id]?.__UIEvent == arg) return true 

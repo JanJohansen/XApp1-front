@@ -1,5 +1,8 @@
 <template>
-	<editor-page-layout>
+	<editor-page-layout
+		@keydown.slef.prevent.delete="flowStore.removeSelectedNodes"
+		@keydown.self.prevent.ctrl.d="flowStore.duplicateNode"
+	>
 		<title>ARI - Flow</title>
 		<template #top>
 			Flow: {{ flowNodeId }}
@@ -19,20 +22,21 @@
 			>
 			<q-btn style="width: 100%" icon="add" v-on:click="newFlow()"></q-btn>
 		</template>
-		<template #right width="500">
+		<template #right>
 			<!-- <q-scroll-area style="height: 100%; width: 100%" class="outerScroll">
 				<div> -->
-					<property-editor :flowEditorModel="flowStore" style="height: 100%" />
-					<q-scroll-area style="height: 100%; font-family:monospace; width=500px;">
-						<div style="font-size: xx-small; line-height: 100%; white-space: pre-wrap">
-							{{
-								YAML.stringify(JSON.parse(JSON.stringify(flowStore)), {
-									indent: 4
-								})
-							}}
-						</div>
-					</q-scroll-area>
-				<!-- </div>
+			<property-editor :flowEditorModel="flowStore" v-on-click-outside="closePropEditor" />
+			<input type="checkbox" v-model="showModels" />
+			<q-scroll-area style="height: 500px; font-family: consolas" v-if="showModels">
+				<div style="font-size: small; line-height: 100%; white-space: pre-wrap">
+					{{
+						YAML.stringify(JSON.parse(JSON.stringify(flowStore)), {
+							indent: 4
+						})
+					}}
+				</div>
+			</q-scroll-area>
+			<!-- </div>
 			</q-scroll-area> -->
 		</template>
 		<template #bottom>
@@ -56,6 +60,17 @@
 			<!-- style="flex: 1" needed to fill space in flexbox layout used by quasar q-page-container -->
 			<flow-canvas :flowEditorModel="flowStore" />
 			<!-- <config-modal :store="flowStore"></config-modal> -->
+			<!-- <floatingWindow style="bottom: 2%; left: 2%; right: 2%">
+				<template #header>
+					<button>Update type</button>
+					editNodeId: {{ flowStore.editorModel.editNodeId }}
+				</template>
+				<div style="height: 500px; padding: 1px; border: 1px solid #303030">
+					<monaco-editor code="// function code goes here..." lib-code="" />
+				</div>
+				<br />
+			</floatingWindow> -->
+			<FlowNodeEditor style="bottom: 3%; left: 3%; right: 3%" />
 		</div>
 	</editor-page-layout>
 </template>
@@ -68,6 +83,7 @@
 
 	import appBB from "../WsBBClient"
 	import EditorPageLayout from "../components/EditorPageLayout.vue"
+	import floatingWindow from "../components/FloatingWindow.vue"
 	import flowCanvas from "../components/Flow/FlowCanvas.vue" // @ is an alias to /src
 	import PropertyEditor from "../components/Flow/PropertyEditor.vue"
 	import configModal from "../components/Flow/ConfigModal.vue"
@@ -77,10 +93,14 @@
 	import YAML from "yaml"
 	import ConfigModal from "../components/Flow/ConfigModal.vue"
 
+	import FlowNodeEditor from "../components/Flow/FlowNodeEditor.vue"
+
 	const route = useRoute()
 
 	const flowStore = useStore()
 	const flowList = flowStore.flowList
+
+	const showModels = ref(false)
 
 	// let flowEditorModel: IFlowEditorModel = {
 	// 	editorModel: flowStore.editorModel,
@@ -101,6 +121,10 @@
 
 	function newFlow() {
 		flowStore.newFlow()
+	}
+
+	function closePropEditor(){
+		flowStore.editorModel.configNodeId = ""
 	}
 </script>
 

@@ -92,15 +92,14 @@
 	const props = defineProps<{
 		store: TFlowStore
 	}>()
-	// const nodeId = props.store.editorModel.configNodeId
 
 	// Use watcher isnatead of computed, since show model is being written to in q-dialog!
 	const show = ref(false)
 	watchEffect(() => {
-		show.value = props.store.editorModel.configNodeId != ""
+		show.value = props.store.editorModel.selectedNodeIds.length > 0
 	})
 	const nodeId = computed(() => {
-		return props.store.editorModel.configNodeId
+		return props.store.editorModel.selectedNodeIds[0]
 	})
 	const nodeModel = computed(() => {
 		return props.store.nodeModels[nodeId.value]
