@@ -58,4 +58,9 @@
 	}
 </script>
 
-<style scoped></style>
+<style scoped>
+textarea {
+	background-color: black;
+	color: white;
+	font-family: consolas;
+}</style>

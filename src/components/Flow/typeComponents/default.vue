@@ -197,6 +197,8 @@
 		console.log("inputMouseUp")
 		const connection = props.flowEditorModel.editorModel.newConnection
 		if (connection) {
+			if(connection.outputNodeId == connection.inputNodeId) return	// Don't connect to self!
+
 			console.log("New connection:", connection)
 			props.flowEditorModel.flowModel.connections.push({
 				outputNodeId: connection.outputNodeId!,
@@ -224,6 +226,7 @@
 		const connection = props.flowEditorModel.editorModel.newConnection
 		console.log("outputMouseUp", connection)
 		if (connection) {
+			if(connection.outputNodeId == connection.inputNodeId) return	// Don't connect to self!
 			console.log("New connection:", connection)
 			props.flowEditorModel.flowModel.connections.push({
 				outputNodeId: props.node.id,
