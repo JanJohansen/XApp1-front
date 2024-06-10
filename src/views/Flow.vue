@@ -1,6 +1,6 @@
 <template>
 	<editor-page-layout
-		@keydown.slef.prevent.delete="flowStore.removeSelectedNodes"
+		@keydown.self.prevent.delete="flowStore.removeSelectedNodes"
 		@keydown.self.prevent.ctrl.d="flowStore.duplicateNode"
 	>
 		<title>ARI - Flow</title>
